@@ -40,7 +40,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user || fetchedFor.current === user.id) return;
-    fetchedFor.current = user.id;
     let cancelled = false;
     const supabase = createClient();
     void (async () => {
@@ -50,17 +49,17 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      if (profile) {
-        const p = profile as { id: string; display_name: string | null };
-        if (p.display_name) setDisplayName(p.display_name);
-        const { data: rows } = await supabase
-          .from("videos")
-          .select("*")
-          .eq("creator_id", p.id)
-          .order("created_at", { ascending: false });
-        if (cancelled) return;
-        setDbRows((rows ?? []).map((r) => mapDbVideo(r as unknown as DbVideoRow)));
-      }
+      if (!profile) return;
+      const p = profile as { id: string; display_name: string | null };
+      if (p.display_name) setDisplayName(p.display_name);
+      const { data: rows } = await supabase
+        .from("videos")
+        .select("*")
+        .eq("creator_id", p.id)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      setDbRows((rows ?? []).map((r) => mapDbVideo(r as unknown as DbVideoRow)));
+      fetchedFor.current = user.id;
     })();
     return () => {
       cancelled = true;

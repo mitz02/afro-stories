@@ -56,7 +56,6 @@ export default function VideosPage() {
   // Fetch the signed-in creator's real uploads (Bunny-backed) from Supabase.
   useEffect(() => {
     if (!user || fetchedFor.current === user.id) return;
-    fetchedFor.current = user.id;
     let cancelled = false;
     const supabase = createClient();
     void (async () => {
@@ -79,6 +78,7 @@ export default function VideosPage() {
         .order("created_at", { ascending: false });
       if (cancelled) return;
       setDbRows((rows ?? []).map((r) => mapDbVideo(r as unknown as DbVideoRow)));
+      fetchedFor.current = user.id;
       setDbLoading(false);
     })();
     return () => {
