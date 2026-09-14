@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   // Find our row first — if Bunny still encodes a video we don't track, ack silently.
   const { data: existing } = await service
     .from("videos")
-    .select("id, status, processing_status")
+    .select("id, status, processing_status, thumbnail, thumbnail_urls")
     .eq("bunny_video_id", VideoGuid)
     .maybeSingle();
   if (!existing) {
@@ -95,6 +95,15 @@ export async function POST(req: NextRequest) {
   const thumbnailUrl = details.thumbnailCount > 0 ? bunnyThumbnailUrl(VideoGuid) : null;
   const hls = bunnyHlsUrl(VideoGuid);
 
+  // Keep a creator-uploaded custom thumbnail; only fall back to Bunny's auto-generated frame when none was set.
+  const hasCustomThumbnail = Boolean(existing.thumbnail);
+  const resolvedThumbnail = hasCustomThumbnail ? existing.thumbnail : (thumbnailUrl ?? null);
+  const resolvedThumbnails = hasCustomThumbnail
+    ? existing.thumbnail_urls
+    : thumbnailUrl
+      ? [thumbnailUrl]
+      : [];
+
   const publishedFromProcessing = existing.status === "processing";
   await service
     .from("videos")
@@ -104,8 +113,8 @@ export async function POST(req: NextRequest) {
       duration: details.length ?? 0,
       hls_url: hls,
       video_url: hls,
-      thumbnail_urls: thumbnailUrl ? [thumbnailUrl] : [],
-      thumbnail: thumbnailUrl,
+      thumbnail_urls: resolvedThumbnails,
+      thumbnail: resolvedThumbnail,
       status: publishedFromProcessing ? "published" : existing.status,
       ...(publishedFromProcessing ? { published_at: new Date().toISOString() } : {}),
       updated_at: new Date().toISOString(),
