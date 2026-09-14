@@ -1,14 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getBunnyVideo } from "@/lib/bunny";
-import { requireCreator } from "@/lib/bunny-auth";
+import { gateCreator } from "@/lib/bunny-auth";
 
 export const runtime = "nodejs";
 
 /** Lightweight encode-progress poller used by the upload flow. */
 export async function GET(req: NextRequest) {
-  const session = await requireCreator();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  const gate = await gateCreator();
+  if (!gate.ok) {
+    const status = gate.reason === "unauthenticated" ? 401 : 403;
+    const error =
+      gate.reason === "unauthenticated"
+        ? "Your session expired. Please sign in again and retry."
+        : "This account isn't an approved creator yet.";
+    return NextResponse.json({ error }, { status });
   }
 
   const videoId = req.nextUrl.searchParams.get("videoId");

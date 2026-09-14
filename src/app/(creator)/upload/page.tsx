@@ -18,6 +18,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useToastStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { cn } from "@/lib/utils";
 import * as tus from "tus-js-client";
 
@@ -99,6 +100,7 @@ const countryCodes: Record<string, string> = {
 export default function UploadPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const showToast = useToastStore((s) => s.showToast);
+  const { user, loading: authLoading } = useSessionProfile();
 
   // State
   const [files, setFiles] = useState<File[]>([]);
@@ -371,6 +373,54 @@ export default function UploadPage() {
 
   return (
     <div className="mx-auto max-w-3xl pb-16">
+      {authLoading && (
+        <div className="mb-6 rounded-xl border border-white/[0.06] bg-surface p-8 text-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      )}
+
+      {!authLoading && !user && (
+        <div className="mb-6 rounded-xl border border-gold/30 bg-gold/10 p-6 text-center">
+          <h2 className="font-display text-lg font-black text-cream">
+            Sign in to upload
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You need an approved creator account to upload stories.
+          </p>
+          <a
+            href="/login"
+            className="mt-4 inline-flex rounded-full bg-gold px-5 py-2 text-sm font-bold text-black hover:bg-gold-dim"
+          >
+            Sign in
+          </a>
+        </div>
+      )}
+
+      {!authLoading && user && user.role === "viewer" && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-6">
+          <h2 className="font-display text-lg font-black text-cream">
+            Not an approved creator
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You're signed in as{" "}
+            <span className="font-semibold text-foreground">{user.email}</span>{" "}
+            — this account doesn't have creator access yet.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sign in with an approved creator account to upload, or contact
+            support to have this account approved.
+          </p>
+          <a
+            href="/login"
+            className="mt-4 inline-flex rounded-full bg-gold px-5 py-2 text-sm font-bold text-black hover:bg-gold-dim"
+          >
+            Switch account
+          </a>
+        </div>
+      )}
+
+      {!authLoading && user && user.role !== "viewer" && (
+        <>
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-black text-cream">
@@ -1120,6 +1170,8 @@ export default function UploadPage() {
           </button>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

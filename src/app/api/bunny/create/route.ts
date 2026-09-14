@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createBunnyVideo, getTusUploadCredentials } from "@/lib/bunny";
-import { requireCreator } from "@/lib/bunny-auth";
+import { gateCreator } from "@/lib/bunny-auth";
 
 export const runtime = "nodejs";
 
@@ -11,13 +11,23 @@ export const runtime = "nodejs";
  * never exposed to the client.
  */
 export async function POST(req: NextRequest) {
-  const session = await requireCreator();
-  if (!session) {
+  const gate = await gateCreator();
+  if (!gate.ok) {
+    if (gate.reason === "unauthenticated") {
+      return NextResponse.json(
+        { error: "Your session expired. Please sign in again and retry the upload." },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
-      { error: "Sign in with an approved creator account to upload." },
-      { status: 401 }
+      {
+        error:
+          "This account isn't an approved creator yet. Sign in with an approved creator account to upload.",
+      },
+      { status: 403 }
     );
   }
+  const session = gate.session;
 
   const body = (await req.json().catch(() => ({}))) as { title?: string; thumbnailTime?: number };
 
