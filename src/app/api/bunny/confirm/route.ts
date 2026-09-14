@@ -91,6 +91,24 @@ export async function POST(req: NextRequest) {
 
   const service = getServiceClient();
 
+  // Idempotency: confirm may be fired twice (double-click, client retry after
+  // a lost response). If this Bunny video was already recorded, return the
+  // existing row instead of inserting a duplicate.
+  const { data: existing } = await service
+    .from("videos")
+    .select("id, slug, title")
+    .eq("bunny_video_id", bunnyVideoId)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json({
+      videoId: (existing as { id: string }).id,
+      slug: (existing as { slug: string | null }).slug ?? slugify(title, bunnyVideoId.slice(0, 8)),
+      title: (existing as { title: string | null }).title ?? title,
+      alreadyPublished: true,
+      watchUrl: `/watch/${(existing as { id: string }).id}`,
+    });
+  }
+
   try {
     const slugSuffix = bunnyVideoId.slice(0, 8);
     const { data: videoRow, error: videoErr } = await service

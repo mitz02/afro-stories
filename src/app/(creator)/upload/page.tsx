@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   UploadCloud,
   Film,
@@ -101,6 +101,7 @@ export default function UploadPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const showToast = useToastStore((s) => s.showToast);
   const { user, loading: authLoading } = useSessionProfile();
+  const publishingRef = useRef(false);
 
   // State
   const [files, setFiles] = useState<File[]>([]);
@@ -302,7 +303,8 @@ export default function UploadPage() {
       showToast("Upload your video first", "No file has been uploaded yet.");
       return;
     }
-    if (publishing) return;
+    if (publishingRef.current) return; // same-tick double-click guard
+    publishingRef.current = true;
     setPublishing(true);
     try {
       // Upload a custom thumbnail (best-effort — publish proceeds even if it fails).
@@ -349,8 +351,19 @@ export default function UploadPage() {
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
+        alreadyPublished?: boolean;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not save your story.");
+
+      if (data.alreadyPublished) {
+        showToast(
+          "This upload was already saved",
+          "No duplicate was created — refresh to start a new upload."
+        );
+        setPublishing(false);
+        publishingRef.current = false;
+        return;
+      }
 
       if (mode === "draft") {
         showToast("Draft saved", "You can continue editing later.");
@@ -364,10 +377,23 @@ export default function UploadPage() {
             : `"${form.title}" is now live on Aafstories.`
         );
       }
+
+      // Reset the flow so the finished upload can't be resubmitted and so the
+      // next upload starts on a clean Step 1.
+      setFiles([]);
+      setUploadProgress(0);
+      setUploadComplete(false);
+      setBunnyVideoId(null);
+      setUploadError(null);
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      setThumbnailUrl(null);
+      setCurrentStep(1);
     } catch (e) {
       showToast("Couldn't publish", (e as Error).message ?? "Please try again.");
     } finally {
       setPublishing(false);
+      publishingRef.current = false;
     }
   };
 
