@@ -1,0 +1,280 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+  /* Aafstories dark theme — deep charcoal, rich purple, warm gold, burnt orange, cream */
+  --background: oklch(0.16 0.01 260);
+  --foreground: oklch(0.97 0.005 80);
+  --card: oklch(0.2 0.012 260);
+  --card-foreground: oklch(0.97 0.005 80);
+  --popover: oklch(0.2 0.012 260);
+  --popover-foreground: oklch(0.97 0.005 80);
+  --primary: oklch(0.62 0.19 285);
+  --primary-foreground: oklch(0.98 0.01 285);
+  --secondary: oklch(0.28 0.02 260);
+  --secondary-foreground: oklch(0.97 0.005 80);
+  --muted: oklch(0.27 0.015 260);
+  --muted-foreground: oklch(0.75 0.02 260);
+  --accent: oklch(0.3 0.03 40);
+  --accent-foreground: oklch(0.98 0.005 40);
+  --destructive: oklch(0.58 0.19 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+  --border: oklch(0.3 0.015 260);
+  --input: oklch(0.3 0.015 260);
+  --ring: oklch(0.62 0.19 285);
+  --chart-1: oklch(0.62 0.19 285);
+  --chart-2: oklch(0.72 0.14 60);
+  --chart-3: oklch(0.66 0.13 40);
+  --chart-4: oklch(0.76 0.12 100);
+  --chart-5: oklch(0.63 0.12 25);
+
+  /* Brand colors */
+  --gold: oklch(0.82 0.14 85);
+  --gold-dim: oklch(0.7 0.1 85);
+  --purple: oklch(0.62 0.19 285);
+  --purple-deep: oklch(0.4 0.16 285);
+  --charcoal: oklch(0.16 0.01 260);
+  --charcoal-raised: oklch(0.22 0.014 260);
+  --charcoal-card: oklch(0.26 0.016 260);
+  --cream: oklch(0.95 0.02 80);
+  --burnt-orange: oklch(0.65 0.16 40);
+  --crimson: oklch(0.55 0.17 25);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Brand colors exposed to Tailwind */
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-purple: var(--purple);
+  --color-purple-deep: var(--purple-deep);
+  --color-charcoal: var(--charcoal);
+  --color-charcoal-raised: var(--charcoal-raised);
+  --color-cream: var(--cream);
+  --color-burnt-orange: var(--burnt-orange);
+  --color-crimson: var(--crimson);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), Georgia, serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--charcoal);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--charcoal-raised);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--charcoal-card);
+}
+
+/* Hide scrollbar for horizontal carousels */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Text gradient utility */
+.text-gradient-gold {
+  background: linear-gradient(
+    135deg,
+    oklch(0.85 0.12 88) 0%,
+    oklch(0.72 0.14 60) 50%,
+    oklch(0.82 0.14 85) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cream {
+  background: linear-gradient(
+    160deg,
+    oklch(0.98 0.005 80) 0%,
+    oklch(0.88 0.03 60) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes ken-burns {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    transform: scale(1.12) translateY(-2%);
+  }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 18s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--charcoal-card) 25%,
+    var(--charcoal-raised) 50%,
+    var(--charcoal-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Custom range slider (video player seek / volume) */
+.player-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--gold) var(--seek-fill, 0%),
+    rgba(255, 255, 255, 0.18) var(--seek-fill, 0%)
+  );
+  outline: none;
+}
+
+.player-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f5b942;
+  border: 2px solid #0b0b12;
+  box-shadow: 0 0 8px rgba(245, 185, 66, 0.5);
+  cursor: pointer;
+}
+
+.player-seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f5b942;
+  border: 2px solid #0b0b12;
+  cursor: pointer;
+}
+
+.player-seek::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Reusable form input styling */
+.input-base {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--charcoal-raised);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  transition: border-color 0.2s;
+}
+.input-base::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+.input-base:focus {
+  outline: none;
+  border-color: rgba(245, 185, 66, 0.6);
+}
+
+/* Pattern texture for African-inspired backgrounds */
+.bg-african-pattern {
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(245, 185, 66, 0.03) 0px,
+      rgba(245, 185, 66, 0.03) 2px,
+      transparent 2px,
+      transparent 12px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(163, 74, 224, 0.02) 0px,
+      rgba(163, 74, 224, 0.02) 2px,
+      transparent 2px,
+      transparent 12px
+    );
+}
