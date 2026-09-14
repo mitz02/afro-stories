@@ -108,6 +108,9 @@ export default function UploadPage() {
   const [bunnyVideoId, setBunnyVideoId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -138,6 +141,9 @@ export default function UploadPage() {
     setUploadComplete(false);
     setBunnyVideoId(null);
     setUploading(true);
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    setThumbnailUrl(null);
 
     // 1) Ask the server for a Bunny Stream slot + TUS upload credentials.
     // 2) Upload the raw bytes straight to Bunny with tus-js-client (the API
@@ -211,6 +217,29 @@ export default function UploadPage() {
     })();
   };
 
+  const handleThumbnailSelect = (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Invalid thumbnail", "Please choose an image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Thumbnail too large", "Images must be under 10 MB.");
+      return;
+    }
+    setThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
+    setThumbnailUrl(null);
+  };
+
+  const clearThumbnail = () => {
+    setThumbnailFile(null);
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+    setThumbnailPreview(null);
+    setThumbnailUrl(null);
+  };
+
   const canProceed = (step: number) => {
     switch (step) {
       case 1:
@@ -240,6 +269,23 @@ export default function UploadPage() {
     if (publishing) return;
     setPublishing(true);
     try {
+      // Upload a custom thumbnail (best-effort — publish proceeds even if it fails).
+      let thumbnail = thumbnailUrl;
+      if (thumbnailFile && !thumbnail) {
+        try {
+          const fd = new FormData();
+          fd.append("file", thumbnailFile);
+          fd.append("bunnyVideoId", bunnyVideoId);
+          const tRes = await fetch("/api/bunny/thumbnail", { method: "POST", body: fd });
+          const tData = (await tRes.json().catch(() => ({}))) as { url?: string; error?: string };
+          if (!tRes.ok || !tData.url) throw new Error(tData.error ?? "Thumbnail upload failed.");
+          thumbnail = tData.url;
+          setThumbnailUrl(tData.url);
+        } catch (e) {
+          showToast("Thumbnail not saved", (e as Error).message ?? "Publishing without it.");
+        }
+      }
+
       const res = await fetch("/api/bunny/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -262,6 +308,7 @@ export default function UploadPage() {
           episodeNumber: form.episodeNumber,
           episodeTitle: form.episodeTitle,
           episodeDescription: form.episodeDescription,
+          thumbnail: thumbnail ?? undefined,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -499,22 +546,56 @@ export default function UploadPage() {
               Thumbnail
             </label>
             <div className="flex items-center gap-4">
-              <div
-                className={cn(
-                  "flex aspect-video w-44 items-center justify-center rounded-xl border border-dashed text-muted-foreground/40 transition-colors",
-                  form.title ? "border-white/[0.12] hover:border-gold/50" : "border-white/[0.08]"
+              <label className="relative block aspect-video w-44 cursor-pointer overflow-hidden rounded-xl border border-dashed transition-all hover:border-gold/50">
+                {thumbnailPreview ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        clearThumbnail();
+                      }}
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white transition-colors hover:bg-black"
+                      aria-label="Remove thumbnail"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="absolute inset-x-0 bottom-0 bg-black/50 py-1 text-center text-[10px] font-semibold text-white">
+                      Click to change
+                    </span>
+                  </>
+                ) : (
+                  <span
+                    className={cn(
+                      "flex h-full w-full flex-col items-center justify-center text-muted-foreground/40",
+                      form.title ? "hover:border-gold/50" : ""
+                    )}
+                  >
+                    <Plus className="mx-auto mb-1 h-4 w-4" />
+                    Add thumbnail
+                  </span>
                 )}
-              >
-                <span className="text-center text-[11px]">
-                  <Plus className="mx-auto mb-1 h-4 w-4" />
-                  Add thumbnail
-                </span>
-              </div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => handleThumbnailSelect(e.target.files)}
+                />
+              </label>
               <div className="text-xs text-muted-foreground">
                 <p className="font-semibold text-cream">Tip</p>
                 <p className="mt-1 max-w-[220px] leading-relaxed">
                   Use a dramatic frame from your story. 16:9, at least 1280×720.
                 </p>
+                {thumbnailFile && thumbnailUrl && (
+                  <p className="mt-1 text-emerald-400">Thumbnail saved with your story.</p>
+                )}
               </div>
             </div>
           </div>

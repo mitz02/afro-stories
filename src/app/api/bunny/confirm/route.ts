@@ -41,6 +41,7 @@ interface ConfirmBody {
   episodeNumber?: number;
   episodeTitle?: string;
   episodeDescription?: string;
+  thumbnail?: string;
 }
 
 /**
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
   const origin = ["ai_generated", "ai_assisted", "human"].includes(body.origin ?? "")
     ? (body.origin as "ai_generated" | "ai_assisted" | "human")
     : "ai_assisted";
+  const thumbnail = typeof body.thumbnail === "string" ? body.thumbnail.trim() : "";
   // Publish now -> the row is "processing" until Bunny finishes encoding, then
   // the webhook brings it live. Draft / schedule -> stays "draft".
   const publishMode: "draft" | "publish" | "schedule" =
@@ -112,6 +114,8 @@ export async function POST(req: NextRequest) {
         bunny_library_id: libraryId,
         hls_url: hls,
         video_url: hls,
+        thumbnail: thumbnail || null,
+        thumbnail_urls: thumbnail ? [thumbnail] : [],
         processing_status: "pending",
       })
       .select("id")
