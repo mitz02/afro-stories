@@ -111,6 +111,7 @@ export default function UploadPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -141,9 +142,21 @@ export default function UploadPage() {
     setUploadComplete(false);
     setBunnyVideoId(null);
     setUploading(true);
+    setUploadError(null);
     setThumbnailFile(null);
     setThumbnailPreview(null);
     setThumbnailUrl(null);
+
+    // Accept the file regardless of browser MIME quirks, but reject obvious
+    // non-videos up front with a clear message.
+    if (file.type && !file.type.startsWith("video/")) {
+      setUploadError(
+        `"${file.name}" is not a video file (detected type: ${file.type || "unknown"}).`
+      );
+      setFiles([]);
+      setUploading(false);
+      return;
+    }
 
     // 1) Ask the server for a Bunny Stream slot + TUS upload credentials.
     // 2) Upload the raw bytes straight to Bunny with tus-js-client (the API
@@ -169,10 +182,19 @@ export default function UploadPage() {
           !data.expirationTime ||
           !data.signature
         ) {
-          throw new Error(data.error ?? "Could not start the upload.");
+          const msg =
+            data.error ?? (res.ok ? "Could not start the upload." : "Server refused the upload.");
+          throw new Error(msg);
         }
 
         await new Promise<void>((resolve, reject) => {
+          // TUS metadata must be plain ASCII — long or non-ASCII filenames can
+          // break the CREATE request headers.
+          const safeTitle = (file.name || "video.mp4")
+            .replace(/\s+/g, " ")
+            .replace(/[^\x20-\x7E]/g, "")
+            .trim()
+            .slice(0, 100) || "video";
           const upload = new tus.Upload(file, {
             endpoint: "https://video.bunnycdn.com/tusupload",
             retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
@@ -184,7 +206,7 @@ export default function UploadPage() {
             },
             metadata: {
               filetype: file.type || "video/mp4",
-              title: file.name,
+              title: safeTitle,
             },
             chunkSize: 5 * 1024 * 1024,
             onProgress: (bytesUploaded, bytesTotal) => {
@@ -197,20 +219,32 @@ export default function UploadPage() {
             onError: (err) => reject(new Error(err.message)),
             onSuccess: () => resolve(),
           });
-          upload.findPreviousUploads().then((previousUploads) => {
-            if (previousUploads.length) {
-              upload.resumeFromPreviousUpload(previousUploads[0]);
-            }
-            upload.start();
-          });
+          // Resume is best-effort: some browsers block the storage tus uses
+          // for resume, and a failed resume must never block a fresh upload.
+          upload
+            .findPreviousUploads()
+            .then((previousUploads) => {
+              if (previousUploads.length) {
+                upload.resumeFromPreviousUpload(previousUploads[0]);
+              }
+              upload.start();
+            })
+            .catch(() => upload.start());
         });
 
         setBunnyVideoId(data.videoId);
         setUploadComplete(true);
+        setUploadError(null);
         showToast("Upload complete!", "Video is being processed.");
       } catch (e) {
         setFiles([]);
-        showToast("Upload failed", (e as Error).message ?? "Please try again.");
+        const message = (e as Error).message ?? "";
+        setUploadError(
+          /fetch|network|failed to fetch/i.test(message)
+            ? "Could not reach the upload server. Check your internet connection and try again."
+            : message || "Upload failed. Please try again."
+        );
+        showToast("Upload failed", message || "Please try again.");
       } finally {
         setUploading(false);
       }
@@ -457,10 +491,13 @@ export default function UploadPage() {
                   {uploading ? "Uploading…" : "Choose Video"}
                   <input
                     type="file"
-                    accept="video/mp4,video/quicktime,video/webm"
+                    accept="video/*"
                     className="hidden"
                     disabled={uploading}
                     onChange={(e) => handleFileSelect(e.target.files)}
+                    onClick={(e) => {
+                      e.currentTarget.value = "";
+                    }}
                   />
                 </label>
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
@@ -476,6 +513,20 @@ export default function UploadPage() {
               </>
             )}
           </div>
+
+          {uploadError && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <span className="flex-1">{uploadError}</span>
+              <button
+                type="button"
+                onClick={() => setUploadError(null)}
+                className="shrink-0 text-red-300/70 transition-colors hover:text-red-200"
+                aria-label="Dismiss error"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Upload progress */}
           {files.length > 0 && !uploadComplete && (
