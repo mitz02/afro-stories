@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useToastStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import * as tus from "tus-js-client";
 
@@ -125,6 +126,30 @@ export default function UploadPage() {
   } | null>(null);
   const [processingPercent, setProcessingPercent] = useState(0);
   const [processingDone, setProcessingDone] = useState(false);
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+
+  // Show which creator profile this upload will be attached to so the
+  // dashboard identity is never ambiguous.
+  useEffect(() => {
+    if (!user || user.role === "viewer") return;
+    if (user.role !== "creator") return;
+    const supabase = createClient();
+    let cancelled = false;
+    void (async () => {
+      const { data: profile } = await supabase
+        .from("creator_profiles")
+        .select("display_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!cancelled && profile) {
+        const p = profile as { display_name: string | null };
+        if (p.display_name) setCreatorName(p.display_name);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const [form, setForm] = useState({
     title: "",
@@ -425,7 +450,6 @@ export default function UploadPage() {
   useEffect(() => {
     if (!processingStory || processingDone) return;
     let cancelled = false;
-    let poll: ReturnType<typeof setInterval>;
     const check = async () => {
       try {
         const res = await fetch(`/api/bunny/status?videoId=${processingStory.bunnyVideoId}`);
@@ -448,7 +472,7 @@ export default function UploadPage() {
       }
     };
     void check();
-    poll = setInterval(check, 6000);
+    const poll = setInterval(check, 6000);
     return () => {
       cancelled = true;
       clearInterval(poll);
@@ -486,9 +510,9 @@ export default function UploadPage() {
             Not an approved creator
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            You're signed in as{" "}
+            You&apos;re signed in as{" "}
             <span className="font-semibold text-foreground">{user.email}</span>{" "}
-            — this account doesn't have creator access yet.
+            — this account doesn&apos;t have creator access yet.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in with an approved creator account to upload, or contact
@@ -505,6 +529,17 @@ export default function UploadPage() {
 
       {!authLoading && user && user.role !== "viewer" && (
         <>
+          {creatorName && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gold/25 bg-gold/[0.06] px-5 py-3">
+              <p className="text-sm text-muted-foreground">
+                Publishing as{" "}
+                <span className="font-display font-bold text-gold">
+                  {creatorName}
+                </span>
+              </p>
+              <span className="text-xs text-muted-foreground">{user.email}</span>
+            </div>
+          )}
           {processingStory ? (
             <div className="mb-8 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
               <div className="relative flex flex-col items-center justify-center gap-4 px-6 py-14 text-center">
@@ -552,7 +587,7 @@ export default function UploadPage() {
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground/60">
-                    Keep this tab open — we'll tell you the moment it's ready.
+                    Keep this tab open — we&apos;ll tell you the moment it&apos;s ready.
                   </p>
                 )}
               </div>

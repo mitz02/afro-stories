@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Eye,
@@ -25,9 +26,49 @@ import {
   topCountries,
 } from "@/lib/data/analytics";
 import { CinemaImage } from "@/components/ui/cinema-image";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import { mapDbVideo, type DbVideoRow } from "@/lib/supabase/videos";
 import { cn, formatDuration, formatNumber, formatNaira } from "@/lib/utils";
+import type { Video } from "@/types";
 
 export default function DashboardPage() {
+  const { user } = useSessionProfile();
+  const [dbRows, setDbRows] = useState<Video[]>([]);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const fetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user || fetchedFor.current === user.id) return;
+    fetchedFor.current = user.id;
+    let cancelled = false;
+    const supabase = createClient();
+    void (async () => {
+      const { data: profile } = await supabase
+        .from("creator_profiles")
+        .select("id, display_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (profile) {
+        const p = profile as { id: string; display_name: string | null };
+        if (p.display_name) setDisplayName(p.display_name);
+        const { data: rows } = await supabase
+          .from("videos")
+          .select("*")
+          .eq("creator_id", p.id)
+          .order("created_at", { ascending: false });
+        if (cancelled) return;
+        setDbRows((rows ?? []).map((r) => mapDbVideo(r as unknown as DbVideoRow)));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  type DashVideo = { id: string; title: string; thumbnail: string; views: number };
+  const topList: DashVideo[] = dbRows.length > 0 ? dbRows : topVideos;
   const stats = [
     {
       label: "Total Views",
@@ -72,10 +113,10 @@ export default function DashboardPage() {
       {/* Welcome */}
       <div>
         <h1 className="font-display text-2xl font-black text-cream">
-          Welcome back, Uwa
+          Welcome back, {displayName ? displayName.split(" ")[0] : "Uwa"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Here's what's happening with your stories today.
+          Here&apos;s what&apos;s happening with your stories today.
         </p>
       </div>
 
@@ -143,10 +184,10 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {topVideos.slice(0, 4).map((video, idx) => (
+            {topList.slice(0, 4).map((video, idx) => (
               <Link
                 key={video.id}
-                href="/analytics"
+                href={dbRows.length > 0 ? `/watch/${video.id}` : "/analytics"}
                 className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-white/[0.04]"
               >
                 <div className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-lg">
@@ -165,6 +206,11 @@ export default function DashboardPage() {
                 </span>
               </Link>
             ))}
+            {dbRows.length === 0 && (
+              <p className="px-1.5 py-2 text-[11px] text-muted-foreground">
+                No uploads yet — your stories will appear here.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -355,7 +401,7 @@ export default function DashboardPage() {
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "My Videos", value: "124", icon: Clapperboard, href: "/videos" },
+          { label: "My Videos", value: dbRows.length ? dbRows.length.toString() : "0", icon: Clapperboard, href: "/videos" },
           { label: "My Series", value: "8", icon: Layers, href: "/my-series" },
           { label: "Episodes", value: "68", icon: Play, href: "/episodes" },
           { label: "Comments", value: "3,240", icon: MessageCircle, href: "/comments" },
