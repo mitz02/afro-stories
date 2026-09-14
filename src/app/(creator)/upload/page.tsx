@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   UploadCloud,
   Film,
@@ -16,6 +17,8 @@ import {
   Plus,
   Sparkles,
   Clock,
+  Loader2,
+  PlayCircle,
 } from "lucide-react";
 import { useToastStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
@@ -115,6 +118,13 @@ export default function UploadPage() {
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [processingStory, setProcessingStory] = useState<{
+    videoId: string;
+    bunnyVideoId: string;
+    title: string;
+  } | null>(null);
+  const [processingPercent, setProcessingPercent] = useState(0);
+  const [processingDone, setProcessingDone] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -352,6 +362,7 @@ export default function UploadPage() {
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         alreadyPublished?: boolean;
+        videoId?: string;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not save your story.");
 
@@ -367,28 +378,25 @@ export default function UploadPage() {
 
       if (mode === "draft") {
         showToast("Draft saved", "You can continue editing later.");
+        resetFlow();
       } else if (mode === "schedule") {
         showToast("Release scheduled", "Your story will go live on the chosen date.");
+        resetFlow();
       } else {
+        // Live publishes switch to the processing screen, which polls Bunny and
+        // toasts the moment encoding finishes.
         showToast(
-          "Published! 🎉",
-          form.contentMode === "series"
-            ? `"${form.seriesTitle}" is now live on Aafstories.`
-            : `"${form.title}" is now live on Aafstories.`
+          "Uploaded! Processing…",
+          `"${form.title || "Your story"}" is being encoded and will go live soon.`
         );
+        setProcessingStory({
+          videoId: data.videoId ?? "",
+          bunnyVideoId,
+          title: form.title || "Your story",
+        });
+        setProcessingPercent(0);
+        setProcessingDone(false);
       }
-
-      // Reset the flow so the finished upload can't be resubmitted and so the
-      // next upload starts on a clean Step 1.
-      setFiles([]);
-      setUploadProgress(0);
-      setUploadComplete(false);
-      setBunnyVideoId(null);
-      setUploadError(null);
-      setThumbnailFile(null);
-      setThumbnailPreview(null);
-      setThumbnailUrl(null);
-      setCurrentStep(1);
     } catch (e) {
       showToast("Couldn't publish", (e as Error).message ?? "Please try again.");
     } finally {
@@ -396,6 +404,56 @@ export default function UploadPage() {
       publishingRef.current = false;
     }
   };
+
+  const resetFlow = () => {
+    setFiles([]);
+    setUploadProgress(0);
+    setUploadComplete(false);
+    setBunnyVideoId(null);
+    setUploadError(null);
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    setThumbnailUrl(null);
+    setProcessingStory(null);
+    setProcessingPercent(0);
+    setProcessingDone(false);
+    setCurrentStep(1);
+  };
+
+  // While a published story is still encoding, poll Bunny and announce when
+  // it's live.
+  useEffect(() => {
+    if (!processingStory || processingDone) return;
+    let cancelled = false;
+    let poll: ReturnType<typeof setInterval>;
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/bunny/status?videoId=${processingStory.bunnyVideoId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { status?: number; encodeProgress?: number };
+        if (typeof data.encodeProgress === "number") {
+          setProcessingPercent(Math.min(100, Math.round(data.encodeProgress)));
+        }
+        if ((data.status ?? 0) === 4) {
+          if (cancelled) return;
+          setProcessingDone(true);
+          clearInterval(poll);
+          showToast(
+            "Your video is now live! 🎉",
+            `"${processingStory.title}" is ready to watch.`
+          );
+        }
+      } catch {
+        // transient network error — keep polling
+      }
+    };
+    void check();
+    poll = setInterval(check, 6000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, [processingStory, processingDone, showToast]);
 
   return (
     <div className="mx-auto max-w-3xl pb-16">
@@ -447,7 +505,61 @@ export default function UploadPage() {
 
       {!authLoading && user && user.role !== "viewer" && (
         <>
-      <div className="mb-8 flex items-center justify-between">
+          {processingStory ? (
+            <div className="mb-8 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+              <div className="relative flex flex-col items-center justify-center gap-4 px-6 py-14 text-center">
+                {processingDone ? (
+                  <Check className="h-12 w-12 rounded-full bg-emerald-500/15 p-2.5 text-emerald-400" />
+                ) : (
+                  <Loader2 className="h-12 w-12 animate-spin text-gold" />
+                )}
+                <h2 className="font-display text-xl font-black text-cream">
+                  {processingDone
+                    ? "Your video is now live!"
+                    : "Processing your video…"}
+                </h2>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  {processingDone
+                    ? `"${processingStory.title}" is encoded and ready to watch. Enjoy the watch!`
+                    : `"${processingStory.title}" is being encoded on our streaming servers. This can take a few minutes.`}
+                </p>
+                {!processingDone && (
+                  <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className={cn(
+                        "h-full rounded-full bg-gold transition-all duration-700",
+                        processingPercent > 0 ? "" : "animate-pulse w-1/3"
+                      )}
+                      style={{ width: processingPercent > 0 ? `${processingPercent}%` : undefined }}
+                    />
+                  </div>
+                )}
+                {processingDone ? (
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+                    <Link
+                      href={`/watch/${processingStory.videoId}`}
+                      className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-2.5 text-sm font-bold text-black transition-all hover:bg-gold-dim"
+                    >
+                      <PlayCircle className="h-4 w-4" />
+                      Watch now
+                    </Link>
+                    <button
+                      onClick={resetFlow}
+                      className="rounded-full border border-white/[0.12] px-6 py-2.5 text-sm font-semibold text-muted-foreground transition-all hover:border-gold/40 hover:text-gold"
+                    >
+                      Upload another
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground/60">
+                    Keep this tab open — we'll tell you the moment it's ready.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-black text-cream">
             Upload Your Story
@@ -1196,6 +1308,8 @@ export default function UploadPage() {
           </button>
         )}
       </div>
+            </>
+          )}
         </>
       )}
     </div>

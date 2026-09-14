@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ThumbsUp,
@@ -92,7 +92,9 @@ export default function WatchPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // Real DB videos (creator uploads via Bunny) aren't in the mock catalog —
-  // fall back to Supabase and render the HLS stream.
+  // fall back to Supabase and render the HLS stream. While a video is
+  // "processing" we keep polling until it goes live, so the page never shows
+  // "Still encoding…" forever.
   useEffect(() => {
     if (mockVideo) {
       setDbLoading(false);
@@ -100,14 +102,15 @@ export default function WatchPage() {
     }
     let cancelled = false;
     const supabase = createClient();
-    void (async () => {
+    const load = async (): Promise<"processing" | "locked-in"> => {
       const { data } = await supabase
         .from("videos")
         .select("*")
         .eq("id", id)
         .maybeSingle();
-      if (cancelled || !data) return;
-      setDbVideo(mapDbVideo(data as unknown as DbVideoRow));
+      if (cancelled || !data) return "locked-in";
+      const mapped = mapDbVideo(data as unknown as DbVideoRow);
+      setDbVideo(mapped);
       const creatorId = (data as unknown as DbVideoRow).creator_id;
       if (creatorId) {
         const { data: creator } = await supabase
@@ -119,10 +122,36 @@ export default function WatchPage() {
           setDbCreatorName((creator as { display_name: string | null }).display_name);
         }
       }
-    })()
-      .then(() => {
-        if (!cancelled) setDbLoading(false);
-      });
+      return mapped.status === "processing" ? "processing" : "locked-in";
+    };
+
+    void (async () => {
+      const state = await load();
+      if (cancelled) return;
+      setDbLoading(false);
+      if (state !== "processing") return;
+
+      const poll = setInterval(async () => {
+        const next = await load();
+        if (cancelled) {
+          clearInterval(poll);
+          return;
+        }
+        if (next === "locked-in") {
+          clearInterval(poll);
+          showToastRef.current?.(
+            "Your video is now live!",
+            "Encoding finished and it's ready to watch."
+          );
+        }
+      }, 8000);
+
+      return () => {
+        cancelled = true;
+        clearInterval(poll);
+      };
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -147,6 +176,10 @@ export default function WatchPage() {
   const { toggleLike, isLiked, isSaved, toggleSave, isFollowingCreator, toggleFollowCreator } =
     useSocialStore();
   const showToast = useToastStore((s) => s.showToast);
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
   if (dbLoading && !mockVideo) {
     return (
