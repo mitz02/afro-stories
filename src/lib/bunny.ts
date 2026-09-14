@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
+
 const API_BASE = "https://video.bunnycdn.com/library";
+export const BUNNY_TUS_ENDPOINT = "https://video.bunnycdn.com/tusupload";
 
 interface BunnyConfig {
   libraryId: string;
@@ -64,18 +67,23 @@ export async function createBunnyVideo(
 }
 
 /**
- * Returns a signed upload URL. The browser PUTs the raw file bytes straight
- * to this URL, so the API key never leaves the server.
+ * TUS resumable-upload credentials. The signature is
+ * SHA256(libraryId + apiKey + expirationTime + videoId), generated server-side
+ * so the API key never leaves the server. The browser uploads directly to
+ * BUNNY_TUS_ENDPOINT using these credentials.
  */
-export async function getBunnyUploadUrl(videoId: string): Promise<{ videoId: string; uploadUrl: string }> {
+export function getTusUploadCredentials(videoId: string): {
+  videoId: string;
+  libraryId: string;
+  expirationTime: number;
+  signature: string;
+} {
   const { libraryId, apiKey } = config();
-  const res = await fetch(`${API_BASE}/${libraryId}/videos/${videoId}`, {
-    method: "POST",
-    headers: baseHeaders(apiKey),
-    body: "{}",
-  });
-  if (!res.ok) throw new Error(`Bunny upload url failed: ${await parseError(res)}`);
-  return (await res.json()) as { videoId: string; uploadUrl: string };
+  const expirationTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours
+  const signature = createHash("sha256")
+    .update(`${libraryId}${apiKey}${expirationTime}${videoId}`)
+    .digest("hex");
+  return { videoId, libraryId, expirationTime, signature };
 }
 
 export async function getBunnyVideo(videoId: string): Promise<BunnyVideoDetails> {

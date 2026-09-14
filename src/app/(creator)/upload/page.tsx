@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useToastStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import * as tus from "tus-js-client";
 
 const steps = [
   { index: 1, title: "Upload", icon: UploadCloud },
@@ -138,8 +139,9 @@ export default function UploadPage() {
     setBunnyVideoId(null);
     setUploading(true);
 
-    // 1) Ask the server for a Bunny Stream slot + signed upload URL.
-    // 2) PUT the raw bytes straight to Bunny (the API key never leaves the server).
+    // 1) Ask the server for a Bunny Stream slot + TUS upload credentials.
+    // 2) Upload the raw bytes straight to Bunny with tus-js-client (the API
+    //    key never leaves the server; uploads resume automatically).
     void (async () => {
       try {
         const res = await fetch("/api/bunny/create", {
@@ -149,30 +151,52 @@ export default function UploadPage() {
         });
         const data = (await res.json().catch(() => ({}))) as {
           videoId?: string;
-          uploadUrl?: string;
+          libraryId?: string;
+          expirationTime?: number;
+          signature?: string;
           error?: string;
         };
-        if (!res.ok || !data.videoId || !data.uploadUrl) {
+        if (
+          !res.ok ||
+          !data.videoId ||
+          !data.libraryId ||
+          !data.expirationTime ||
+          !data.signature
+        ) {
           throw new Error(data.error ?? "Could not start the upload.");
         }
 
         await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", data.uploadUrl as string);
-          if (file.type) xhr.setRequestHeader("Content-Type", file.type);
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setUploadProgress(
-                Math.min(100, Math.round((e.loaded / e.total) * 100))
-              );
+          const upload = new tus.Upload(file, {
+            endpoint: "https://video.bunnycdn.com/tusupload",
+            retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
+            headers: {
+              AuthorizationSignature: data.signature as string,
+              AuthorizationExpire: String(data.expirationTime as number),
+              VideoId: data.videoId as string,
+              LibraryId: data.libraryId as string,
+            },
+            metadata: {
+              filetype: file.type || "video/mp4",
+              title: file.name,
+            },
+            chunkSize: 5 * 1024 * 1024,
+            onProgress: (bytesUploaded, bytesTotal) => {
+              if (bytesTotal) {
+                setUploadProgress(
+                  Math.min(100, Math.round((bytesUploaded / bytesTotal) * 100))
+                );
+              }
+            },
+            onError: (err) => reject(new Error(err.message)),
+            onSuccess: () => resolve(),
+          });
+          upload.findPreviousUploads().then((previousUploads) => {
+            if (previousUploads.length) {
+              upload.resumeFromPreviousUpload(previousUploads[0]);
             }
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
-          };
-          xhr.onerror = () => reject(new Error("Network error during upload."));
-          xhr.send(file);
+            upload.start();
+          });
         });
 
         setBunnyVideoId(data.videoId);
