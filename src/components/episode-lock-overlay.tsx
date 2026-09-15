@@ -1,10 +1,9 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Coins, Lock, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatPoints } from "@/lib/utils";
 import { useUnlocksStore, useWalletStore, useToastStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { PointPurchaseModal } from "@/components/point-purchase-modal";
 
 export function EpisodeLockOverlay({
@@ -21,9 +20,17 @@ export function EpisodeLockOverlay({
   seriesTitle?: string;
 }) {
   const { balance, deductPoints } = useWalletStore();
+  const setWalletBalance = useWalletStore((s) => s.setBalance);
+  const { user, balance: userBalance } = useSessionProfile();
   const { unlockEpisode } = useUnlocksStore();
   const showToast = useToastStore((s) => s.showToast);
   const [showPurchase, setShowPurchase] = useState(false);
+
+  // Signed-in balance comes from the DB wallet (points bought via Paystack).
+  useEffect(() => {
+    if (user) setWalletBalance(userBalance);
+  }, [user, userBalance, setWalletBalance]);
+
   const enough = balance >= unlockPrice;
 
   const handleUnlock = () => {
@@ -62,7 +69,7 @@ export function EpisodeLockOverlay({
               {seriesTitle && (
                 <span className="block text-gold">{seriesTitle}</span>
               )}
-              <span className="line-clamp-1">"{episodeTitle}"</span>
+              <span className="line-clamp-1">&quot;{episodeTitle}&quot;</span>
             </p>
 
             <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold/25 bg-gold/[0.08] py-2.5">

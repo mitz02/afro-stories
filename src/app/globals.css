@@ -201,6 +201,66 @@ body {
   animation: shimmer 2s ease-in-out infinite;
 }
 
+/* TikTok-style overlay animations */
+@keyframes tiktok-heart-burst {
+  0% {
+    transform: scale(0.2) translateY(28px) rotate(-14deg);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.25) translateY(0) rotate(4deg);
+    opacity: 1;
+  }
+  32% {
+    transform: scale(0.95) translateY(-6px) rotate(0deg);
+    opacity: 1;
+  }
+  55% {
+    transform: scale(1.05) translateY(-16px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.25) translateY(-64px) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.tiktok-heart-burst {
+  animation: tiktok-heart-burst 0.9s ease-out forwards;
+}
+
+@keyframes tiktok-heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.4);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tiktok-heart-pop {
+  animation: tiktok-heart-pop 0.45s ease-out;
+}
+
+@keyframes tiktok-music-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tiktok-music-spin {
+  animation: tiktok-music-spin 7s linear infinite;
+}
+
 /* Custom range slider (video player seek / volume) */
 .player-seek {
   -webkit-appearance: none;

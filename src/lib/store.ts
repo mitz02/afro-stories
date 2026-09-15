@@ -9,6 +9,7 @@ interface WalletState {
   buyPoints: (packageId: string) => void;
   deductPoints: (amount: number, description: string) => boolean;
   hasEnoughPoints: (amount: number) => boolean;
+  setBalance: (balance: number) => void;
 }
 
 export const useWalletStore = create<WalletState>()(
@@ -42,6 +43,8 @@ export const useWalletStore = create<WalletState>()(
       },
 
       hasEnoughPoints: (amount: number) => get().balance >= amount,
+
+      setBalance: (balance: number) => set({ balance }),
     }),
     { name: "aafstories-wallet" }
   )

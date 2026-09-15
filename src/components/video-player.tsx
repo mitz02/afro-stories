@@ -16,12 +16,32 @@ import {
   Clapperboard,
   X,
   Loader2,
+  Heart,
 } from "lucide-react";
 import { CinemaImage } from "@/components/ui/cinema-image";
+import { TiktokOverlay } from "@/components/tiktok-overlay";
 import { getEpisodesForSeries } from "@/lib/data/series";
 import { cn, formatDuration } from "@/lib/utils";
 import { useWatchProgressStore } from "@/lib/store";
 import type { Episode, Series } from "@/types";
+
+export interface TiktokOverlayData {
+  videoId: string;
+  liked: boolean;
+  likeCount: number;
+  saved: boolean;
+  following: boolean;
+  creatorName: string;
+  creatorAvatar: string;
+  creatorVerified: boolean;
+  caption: string;
+  hashtags: string[];
+  onLike: () => void;
+  onSave: () => void;
+  onShare: () => void;
+  onFollow: () => void;
+  onOpenComments: () => void;
+}
 
 interface VideoPlayerProps {
   videoId: string;
@@ -32,9 +52,17 @@ interface VideoPlayerProps {
   hlsUrl?: string;
   episode?: Episode;
   series?: Series;
+  overlay?: TiktokOverlayData | null;
   onSelectEpisode?: (episodeId: string, videoId: string) => void;
   onFirstPlay?: ((videoId: string) => void) | undefined;
 }
+
+interface HeartBurst {
+  id: number;
+  left: number;
+}
+
+let heartBurstId = 0;
 
 export function VideoPlayer({
   videoId,
@@ -45,6 +73,7 @@ export function VideoPlayer({
   hlsUrl,
   episode,
   series,
+  overlay,
   onSelectEpisode,
   onFirstPlay,
 }: VideoPlayerProps) {
@@ -68,8 +97,27 @@ export function VideoPlayer({
   const playingRef = useRef(false);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const firedPlayRef = useRef(false);
+  const heartTapRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [heartBursts, setHeartBursts] = useState<HeartBurst[]>([]);
   const { setProgress, getProgress } = useWatchProgressStore();
   const startProgress = getProgress(videoId);
+
+  // Double-tap anywhere on the video (fullscreen) = like, TikTok style.
+  const handleContainerDoubleTap = () => {
+    if (!overlay || heartTapRef.current) return;
+    heartTapRef.current = setTimeout(() => {
+      heartTapRef.current = null;
+    }, 400);
+    if (!overlay.liked) overlay.onLike();
+    const id = ++heartBurstId;
+    setHeartBursts((prev) => [
+      ...prev.slice(-3),
+      { id, left: 20 + Math.random() * 60 },
+    ]);
+    setTimeout(() => {
+      setHeartBursts((prev) => prev.filter((b) => b.id !== id));
+    }, 900);
+  };
 
   const notifyFirstPlay = () => {
     if (firedPlayRef.current) return;
@@ -184,6 +232,14 @@ export function VideoPlayer({
     }, 2600);
   };
 
+  useEffect(() => {
+    const onFsChange = () => {
+      setFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen();
@@ -232,6 +288,7 @@ export function VideoPlayer({
       className="group/player relative aspect-video w-full overflow-hidden rounded-xl bg-black ring-1 ring-white/10"
       onMouseMove={resetControlsTimer}
       onMouseLeave={() => playing && setShowControls(false)}
+      onDoubleClick={overlay && fullscreen ? handleContainerDoubleTap : undefined}
     >
       {/* Backdrop / poster (hls video element renders above it once playing) */}
       <CinemaImage
@@ -292,6 +349,21 @@ export function VideoPlayer({
           <Loader2 className="h-10 w-10 animate-spin text-gold" />
         </div>
       )}
+
+      {/* TikTok-style engagement overlay (fullscreen only) */}
+      {overlay && fullscreen && <TiktokOverlay {...overlay} />}
+
+      {/* Heart bursts from double-tap (fullscreen) */}
+      {fullscreen &&
+        heartBursts.map((b) => (
+          <span
+            key={b.id}
+            style={{ left: `${b.left}%` }}
+            className="tiktok-heart-burst pointer-events-none absolute bottom-[38%] z-[16] text-crimson"
+          >
+            <Heart className="h-16 w-16 fill-current" />
+          </span>
+        ))}
 
       {/* Fake timecode / scanline to sell the cinematic feel (sim only) */}
       {playing && mode === "sim" && (

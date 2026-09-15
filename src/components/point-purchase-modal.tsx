@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { X, Coins, Check, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { X, Coins, Check, Sparkles, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { pointPackages, currentWallet } from "@/lib/data/wallet";
+import { pointPackages as staticPackages } from "@/lib/data/wallet";
+import { createClient } from "@/lib/supabase/client";
 import { useWalletStore, useToastStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { formatNaira, formatPoints, cn } from "@/lib/utils";
+
+interface BuyPackage {
+  id: string;
+  points: number;
+  priceNaira: number;
+  bonus: number;
+  popular: boolean;
+}
 
 export function PointPurchaseModal({
   open,
@@ -16,21 +27,108 @@ export function PointPurchaseModal({
   onOpenChange: (open: boolean) => void;
   episodeTitle?: string;
 }) {
-  const { balance, buyPoints } = useWalletStore();
+  const router = useRouter();
+  const storeBalance = useWalletStore((s) => s.balance);
   const showToast = useToastStore((s) => s.showToast);
+  const { user, balance: userBalance } = useSessionProfile();
   const [selected, setSelected] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [packages, setPackages] = useState<BuyPackage[] | null>(null);
 
-  const finalize = () => {
+  // Load live pricing from the DB (admin-managed), falling back to the
+  // static seed list if the point_packages migration isn't applied yet.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      let next: BuyPackage[];
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("point_packages")
+          .select("id, points, price, bonus, popular, active, sort_order")
+          .eq("active", true)
+          .order("sort_order", { ascending: true });
+        if (error || !data || data.length === 0) {
+          next = staticPackages.map((p) => ({
+            id: p.id,
+            points: p.points,
+            priceNaira: p.price,
+            bonus: p.bonus ?? 0,
+            popular: p.popular ?? false,
+          }));
+        } else {
+          next = (data as {
+            id: string;
+            points: number;
+            price: number;
+            bonus: number;
+            popular: boolean;
+          }[]).map((p) => ({
+            id: p.id,
+            points: p.points,
+            priceNaira: Math.round(p.price / 100), // kobo -> naira
+            bonus: p.bonus ?? 0,
+            popular: p.popular ?? false,
+          }));
+        }
+      } catch {
+        next = staticPackages.map((p) => ({
+          id: p.id,
+          points: p.points,
+          priceNaira: p.price,
+          bonus: p.bonus ?? 0,
+          popular: p.popular ?? false,
+        }));
+      }
+      if (!cancelled) {
+        setPackages(next);
+        // Drop any selection that a fresh package list no longer contains so a
+        // stale selection can't be charged against the wrong price.
+        setSelected((current) =>
+          next.some((p) => p.id === current) ? current : null
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const balance = user ? userBalance : storeBalance;
+
+  const selectedPkg = useMemo(
+    () => packages?.find((p) => p.id === selected) ?? null,
+    [packages, selected]
+  );
+
+  const startPurchase = async () => {
     if (!selected) return;
-    const pkg = pointPackages.find((p) => p.id === selected);
-    if (!pkg) return;
-    buyPoints(selected);
-    showToast(
-      `${formatPoints(pkg.points + (pkg.bonus ?? 0))} points added`,
-      episodeTitle ? `Unlock "${episodeTitle}" with your new points` : undefined
-    );
-    setSelected(null);
-    onOpenChange(false);
+    if (!user) {
+      showToast("Sign in required", "Create an account to buy points.");
+      router.push("/login");
+      return;
+    }
+    setStarting(true);
+    try {
+      const res = await fetch("/api/payments/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId: selected }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        authorizationUrl?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.authorizationUrl) {
+        showToast("Payment failed", data.error ?? "Could not start payment.");
+        setStarting(false);
+        return;
+      }
+      window.location.href = data.authorizationUrl;
+    } catch {
+      showToast("Payment failed", "Could not reach the payment provider.");
+      setStarting(false);
+    }
   };
 
   return (
@@ -69,7 +167,9 @@ export function PointPurchaseModal({
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {episodeTitle ? (
-                      <>Unlock <span className="text-gold">"{episodeTitle}"</span> and other premium stories.</>
+                      <>
+                        Unlock <span className="text-gold">&quot;{episodeTitle}&quot;</span> and other premium stories.
+                      </>
                     ) : (
                       "The currency for premium African stories."
                     )}
@@ -99,9 +199,8 @@ export function PointPurchaseModal({
 
               {/* Packages */}
               <div className="mt-5 grid grid-cols-2 gap-3">
-                {pointPackages.map((pkg) => {
+                {(packages ?? []).map((pkg) => {
                   const isSelected = selected === pkg.id;
-                  const effective = pkg.points + (pkg.bonus ?? 0);
                   return (
                     <button
                       key={pkg.id}
@@ -127,7 +226,7 @@ export function PointPurchaseModal({
                       </p>
                       <div className="mt-2 flex items-end justify-between">
                         <span className="text-sm font-semibold text-gold">
-                          {formatNaira(pkg.price)}
+                          {formatNaira(pkg.priceNaira)}
                         </span>
                         {pkg.bonus ? (
                           <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
@@ -146,20 +245,36 @@ export function PointPurchaseModal({
               </div>
 
               <button
-                onClick={finalize}
-                disabled={!selected}
+                onClick={startPurchase}
+                disabled={!selected || starting}
                 className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-gold to-burnt-orange py-3.5 text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 disabled:opacity-40"
               >
-                <Coins className="h-4 w-4" />
-                {selected
-                  ? `Buy ${formatNaira(pointPackages.find((p) => p.id === selected)?.price ?? 0)} · ${formatPoints(
-                      (pointPackages.find((p) => p.id === selected)?.points ?? 0) +
-                        (pointPackages.find((p) => p.id === selected)?.bonus ?? 0)
-                    )} pts`
-                  : "Select a package"}
+                {starting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Redirecting to Paystack…
+                  </>
+                ) : (
+                  <>
+                    <Coins className="h-4 w-4" />
+                    {selected && selectedPkg ? (
+                      `Buy ${formatNaira(selectedPkg.priceNaira)} · ${formatPoints(
+                        selectedPkg.points + selectedPkg.bonus
+                      )} pts`
+                    ) : (
+                      "Select a package"
+                    )}
+                  </>
+                )}
               </button>
 
-              <p className="mt-3 text-center text-[11px] text-muted-foreground/60">
+              {!user && (
+                <p className="mt-3 text-center text-[11px] text-gold">
+                  You&apos;ll need an account to pay — you&apos;ll be taken to sign in.
+                </p>
+              )}
+
+              <p className="mt-2 text-center text-[11px] text-muted-foreground/60">
                 Points never expire. Payments are secure via Paystack.
               </p>
             </div>

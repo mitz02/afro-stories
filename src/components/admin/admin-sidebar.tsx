@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Flag,
   Settings,
+  Coins,
   Shield,
   LogOut,
   X,
@@ -44,7 +45,10 @@ const adminNav = [
   },
   {
     section: "System",
-    items: [{ href: "/admin/settings", label: "Feature Controls", icon: Settings }],
+    items: [
+      { href: "/admin/settings", label: "Feature Controls", icon: Settings },
+      { href: "/admin/pricing", label: "Point Pricing", icon: Coins },
+    ],
   },
 ];
 

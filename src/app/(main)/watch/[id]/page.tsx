@@ -89,17 +89,14 @@ export default function WatchPage() {
   const [dbVideo, setDbVideo] = useState<Video | null>(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbCreatorName, setDbCreatorName] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
 
   // Real DB videos (creator uploads via Bunny) aren't in the mock catalog —
   // fall back to Supabase and render the HLS stream. While a video is
   // "processing" we keep polling until it goes live, so the page never shows
   // "Still encoding…" forever.
   useEffect(() => {
-    if (mockVideo) {
-      setDbLoading(false);
-      return;
-    }
+    if (mockVideo) return;
     let cancelled = false;
     const supabase = createClient();
     const load = async (): Promise<"processing" | "locked-in"> => {
@@ -139,7 +136,7 @@ export default function WatchPage() {
         }
         if (next === "locked-in") {
           clearInterval(poll);
-          showToastRef.current?.(
+          showToast(
             "Your video is now live!",
             "Encoding finished and it's ready to watch."
           );
@@ -155,7 +152,7 @@ export default function WatchPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, mockVideo]);
+  }, [id, mockVideo, showToast]);
 
   const video: Video | null | undefined = mockVideo ?? dbVideo;
   const isDb = !mockVideo && !!dbVideo;
@@ -164,21 +161,24 @@ export default function WatchPage() {
   const episode = video?.episodeId ? getEpisode(video.episodeId) : undefined;
   const series = video?.seriesId ? getSeries(video.seriesId) : undefined;
 
-  const [selectedSeason, setSelectedSeason] = useState<number>(
-    episode?.seasonNumber ?? 1
-  );
-  useEffect(() => {
-    setSelectedSeason(episode?.seasonNumber ?? 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episode?.seasonNumber]);
+  // Tracks the selected season, resetting automatically whenever the video
+  // changes (navigating between episodes). Derived from the current video id
+  // so no effect is needed to keep it in sync.
+  const [seasonSelection, setSeasonSelection] = useState<{
+    videoId: string;
+    season: number;
+  }>({ videoId: video?.id ?? "", season: episode?.seasonNumber ?? 1 });
+  const selectedSeason =
+    seasonSelection.videoId === video?.id
+      ? seasonSelection.season
+      : (episode?.seasonNumber ?? 1);
+
+  const handleSelectSeason = (seasonNumber: number) => {
+    setSeasonSelection({ videoId: video?.id ?? "", season: seasonNumber });
+  };
 
   const { isUnlocked } = useUnlocksStore();
   const { isSaved, toggleSave } = useSocialStore();
-  const showToast = useToastStore((s) => s.showToast);
-  const showToastRef = useRef(showToast);
-  useEffect(() => {
-    showToastRef.current = showToast;
-  }, [showToast]);
 
   const [liked, setLiked] = useState(false);
   const [followingCreator, setFollowingCreator] = useState(false);
@@ -300,7 +300,6 @@ export default function WatchPage() {
     : undefined;
 
   const handleSelectEpisode = (episodeId: string, nextVideoId: string) => {
-    setPickerOpen(false);
     router.push(`/watch/${nextVideoId}`);
   };
 
@@ -412,6 +411,34 @@ export default function WatchPage() {
                 duration={video.duration}
                 episode={episode}
                 series={series}
+                overlay={
+                  creator
+                    ? {
+                        videoId: video.id,
+                        liked,
+                        likeCount: effectiveLikes,
+                        saved,
+                        following: followingCreator,
+                        creatorName: creator.displayName,
+                        creatorAvatar: creator.avatarGradient,
+                        creatorVerified: creator.verified,
+                        caption:
+                          video.description.length > 220
+                            ? `${video.description.slice(0, 220)}…`
+                            : video.description,
+                        hashtags: video.tags.slice(0, 4),
+                        onLike: () => void handleLike(),
+                        onSave: handleSave,
+                        onShare: () => void handleShare(),
+                        onFollow: () => void handleFollow(),
+                        onOpenComments: () => {
+                          document
+                            .getElementById("watch-comments")
+                            ?.scrollIntoView({ behavior: "smooth" });
+                        },
+                      }
+                    : null
+                }
                 onSelectEpisode={handleSelectEpisode}
                 onFirstPlay={trackView}
               />
@@ -612,7 +639,7 @@ export default function WatchPage() {
                   Series Complete
                 </p>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  You've watched every episode so far. Check back for the next season!
+                  You&apos;ve watched every episode so far. Check back for the next season!
                 </p>
               </div>
             )}
@@ -628,7 +655,7 @@ export default function WatchPage() {
                     {allSeasons.map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => setSelectedSeason(s.seasonNumber)}
+                        onClick={() => handleSelectSeason(s.seasonNumber)}
                         className={cn(
                           "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
                           selectedSeason === s.seasonNumber
@@ -683,7 +710,7 @@ export default function WatchPage() {
 
       {/* COMMENTS */}
       {flags.comments && (
-      <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div id="watch-comments" className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 lg:col-start-1">
           <CommentSection videoId={video.id} />
         </div>
