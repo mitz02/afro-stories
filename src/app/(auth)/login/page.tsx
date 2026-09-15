@@ -11,11 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
 import { useToastStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { cn, roleHomePath } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 const toastMessages = {
-  success: { title: "Welcome back!", description: "Redirecting you to your feed..." },
+  success: { title: "Welcome back!", description: "Redirecting you to your dashboard..." },
   error: { title: "Sign in failed", description: "Invalid email or password. Please try again." },
   validation: { title: "Missing fields", description: "Please fill in all required fields." },
 };
@@ -88,9 +88,22 @@ export default function LoginPage() {
         return;
       }
 
+      const {
+        data: { user: sessionUser },
+      } = await supabase.auth.getUser();
+      let role: string | undefined;
+      if (sessionUser) {
+        const { data: profileRow } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", sessionUser.id)
+          .maybeSingle();
+        role = (profileRow as { role?: string } | null)?.role;
+      }
+
       useToastStore.getState().showToast(toastMessages.success.title, toastMessages.success.description);
       setShowSuccess(true);
-      setTimeout(() => router.push("/home"), 1200);
+      setTimeout(() => router.push(roleHomePath(role)), 1200);
     } catch {
       useToastStore.getState().showToast(toastMessages.error.title, toastMessages.error.description);
     } finally {

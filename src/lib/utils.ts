@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export type UserRole = "viewer" | "creator" | "admin";
+
+export function roleHomePath(role?: string | null): string {
+  if (role === "admin") return "/admin";
+  if (role === "creator") return "/dashboard";
+  return "/home";
+}
+
 export function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;

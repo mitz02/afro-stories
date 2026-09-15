@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
 import { useToastStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { cn, roleHomePath } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 const toastMessages = {
@@ -114,7 +114,7 @@ export default function RegisterPage() {
       if (data.session) {
         useToastStore.getState().showToast(toastMessages.success.title, toastMessages.success.description);
         setShowSuccess(true);
-        setTimeout(() => router.push("/home"), 1200);
+        setTimeout(() => router.push(roleHomePath(formData.role)), 1200);
       } else {
         useToastStore.getState().showToast(toastMessages.successConfirm.title, toastMessages.successConfirm.description);
       }
