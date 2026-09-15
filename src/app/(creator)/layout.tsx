@@ -18,7 +18,29 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
+import * as React from "react";
 import { useState } from "react";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import { Loader2 } from "lucide-react";
+
+interface CreatorIdentity {
+  display_name: string | null;
+  username: string;
+  avatar_gradient: string | null;
+  followers_count: number;
+  total_videos: number;
+  status: string;
+}
+
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("") || "C";
+}
 
 const navSections = [
   {
@@ -60,6 +82,54 @@ export default function CreatorLayout({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useSessionProfile();
+  const [identity, setIdentity] = React.useState<CreatorIdentity | null>(null);
+  const [identityLoading, setIdentityLoading] = React.useState(true);
+  const fetchedFor = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!user || fetchedFor.current === user.id) return;
+    let cancelled = false;
+    const supabase = createClient();
+    void (async () => {
+      const { data: profile } = await supabase
+        .from("creator_profiles")
+        .select("display_name, username, avatar_gradient, followers_count, total_videos, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (profile) {
+        const p = profile as {
+          display_name: string | null;
+          username: string;
+          avatar_gradient: string | null;
+          followers_count: number;
+          total_videos: number;
+          status: string;
+        };
+        setIdentity({
+          display_name: p.display_name,
+          username: p.username,
+          avatar_gradient: p.avatar_gradient,
+          followers_count: p.followers_count ?? 0,
+          total_videos: p.total_videos ?? 0,
+          status: p.status,
+        });
+      }
+      fetchedFor.current = user.id;
+      setIdentityLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const displayName = identity?.display_name ?? user?.display_name ?? "Creator";
+  const userInitials = initials(displayName);
+  const gradient =
+    identity?.avatar_gradient && identity.avatar_gradient.includes("from-")
+      ? identity.avatar_gradient
+      : "from-amber-500 to-orange-700";
 
   return (
     <div className="flex min-h-screen bg-charcoal">
@@ -82,17 +152,29 @@ export default function CreatorLayout({
           </button>
         </div>
 
-        {/* Creator switch */}
+        {/* Creator identity */}
         <div className="border-b border-white/[0.06] px-4 py-4">
           <div className="flex items-center gap-3 rounded-xl border border-gold/25 bg-gradient-to-br from-gold/[0.08] to-transparent p-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 font-display text-lg font-bold text-white">
-              CU
+            <div
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br font-display text-lg font-bold text-white",
+                gradient
+              )}
+            >
+              {identityLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+              ) : (
+                userInitials
+              )}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-cream">
-                Chief Uwa Folktales
+              <p className="truncate text-sm font-bold text-cream">{displayName}</p>
+              <p className="text-[11px] text-emerald-400">
+                Creator ·{" "}
+                {identity?.status
+                  ? identity.status[0].toUpperCase() + identity.status.slice(1)
+                  : "Approved"}
               </p>
-              <p className="text-[11px] text-emerald-400">Creator · Approved</p>
             </div>
           </div>
         </div>
@@ -174,11 +256,22 @@ export default function CreatorLayout({
           </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden rounded-xl border border-gold/25 bg-gold/[0.06] px-4 py-2 text-xs sm:block">
-              <span className="text-muted-foreground">Available:</span>{" "}
-              <span className="font-bold text-gold">₦842,500</span>
+              <span className="text-muted-foreground">Videos:</span>{" "}
+              <span className="font-bold text-gold">
+                {identity ? identity.total_videos : "—"}
+              </span>
+              <span className="text-muted-foreground"> · Followers:</span>{" "}
+              <span className="font-bold text-gold">
+                {identity ? identity.followers_count.toLocaleString() : "—"}
+              </span>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 font-display text-sm font-bold text-white">
-              CU
+            <div
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br font-display text-sm font-bold text-white",
+                gradient
+              )}
+            >
+              {identityLoading ? "…" : userInitials}
             </div>
           </div>
         </header>

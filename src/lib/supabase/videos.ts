@@ -18,6 +18,8 @@ export interface DbVideoRow {
   country: string | null;
   tags: string[] | null;
   views: number | null;
+  likes: number | null;
+  shares: number | null;
   created_at: string | null;
   published_at: string | null;
   creator_id: string | null;
@@ -61,8 +63,8 @@ export function mapDbVideo(row: DbVideoRow): Video {
     country: (row.country ?? "NG") as Video["country"],
     tags: row.tags ?? [],
     views: row.views ?? 0,
-    likes: 0,
-    shares: 0,
+    likes: row.likes ?? 0,
+    shares: row.shares ?? 0,
     createdAt: row.created_at ?? new Date().toISOString(),
     publishedAt: row.published_at ?? row.created_at ?? new Date().toISOString(),
     creatorId: row.creator_id ?? "",
