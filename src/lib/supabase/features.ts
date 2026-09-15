@@ -20,11 +20,15 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
 
   try {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("app_settings")
       .select("value")
       .eq("key", key)
       .maybeSingle();
+    if (error) {
+      // table missing (migration not applied) — fall back to the default
+      return DEFAULT_FLAGS[key] ?? true;
+    }
     const value = Boolean(data?.value);
     cache.set(key, { value, expires: Date.now() + TTL_MS });
     return value;
