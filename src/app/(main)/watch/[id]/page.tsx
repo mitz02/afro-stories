@@ -173,13 +173,33 @@ export default function WatchPage() {
   }, [episode?.seasonNumber]);
 
   const { isUnlocked } = useUnlocksStore();
-  const { toggleLike, isLiked, isSaved, toggleSave, isFollowingCreator, toggleFollowCreator } =
-    useSocialStore();
+  const { isSaved, toggleSave } = useSocialStore();
   const showToast = useToastStore((s) => s.showToast);
   const showToastRef = useRef(showToast);
   useEffect(() => {
     showToastRef.current = showToast;
   }, [showToast]);
+
+  const [liked, setLiked] = useState(false);
+  const [followingCreator, setFollowingCreator] = useState(false);
+
+  useEffect(() => {
+    if (!video) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/social/status?videoId=${video.id}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { liked?: boolean; followingCreator?: boolean };
+        if (cancelled) return;
+        if (typeof data.liked === "boolean") setLiked(data.liked);
+        if (typeof data.followingCreator === "boolean") setFollowingCreator(data.followingCreator);
+      } catch {
+        // not signed in or network error — leave defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [video]);
 
   if (dbLoading && !mockVideo) {
     return (
@@ -234,10 +254,8 @@ export default function WatchPage() {
     video.monetization === "free" ||
     (episode ? isUnlocked(episode.id) : isUnlocked(video.id));
   const lockActive = video.monetization === "premium" && !unlocked;
-  const liked = isLiked(video.id, false);
   const saved = isSaved(video.id);
-  const followingCreator = creator ? isFollowingCreator(creator.id) : false;
-  const effectiveLikes = video.likes + (liked ? 1 : 0);
+  const effectiveLikes = (video?.likes ?? 0) + (liked ? 1 : 0);
 
   const allSeasons = series ? getSeasonsForSeries(series.id) : [];
   const seriesEpisodes = series ? getEpisodesForSeries(series.id, selectedSeason) : [];
@@ -252,12 +270,23 @@ export default function WatchPage() {
     router.push(`/watch/${nextVideoId}`);
   };
 
-  const handleLike = () => {
-    toggleLike(video.id, false);
+  const handleLike = async () => {
+    const wasLiked = liked;
+    setLiked(!wasLiked);
     showToast(
-      liked ? "Removed like" : "You liked this story",
-      liked ? undefined : "Support the storyteller!"
+      wasLiked ? "Removed like" : "You liked this story",
+      wasLiked ? undefined : "Support the storyteller!"
     );
+    try {
+      const res = await fetch("/api/social/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: video.id }),
+      });
+      if (!res.ok) setLiked(wasLiked);
+    } catch {
+      setLiked(wasLiked);
+    }
   };
 
   const handleSave = () => {
@@ -265,17 +294,35 @@ export default function WatchPage() {
     showToast(saved ? "Removed from saved" : "Saved for later", saved ? undefined : "It's in your watchlist.");
   };
 
-  const handleShare = () => {
-    showToast("Link copied to clipboard", "Share the story with your friends.");
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast("Link copied to clipboard", "Share the story with your friends.");
+    } catch {
+      showToast("Share this story", window.location.href);
+    }
   };
 
-  const handleFollow = () => {
+  const handleFollow = async () => {
     if (!creator) return;
-    toggleFollowCreator(creator.id);
+    const wasFollowing = followingCreator;
+    setFollowingCreator(!wasFollowing);
     showToast(
-      followingCreator ? "Unfollowed creator" : `Following ${creator.displayName}`,
-      followingCreator ? undefined : "You'll see new stories in your feed."
+      wasFollowing ? "Unfollowed creator" : `Following ${creator.displayName}`,
+      wasFollowing ? undefined : "You'll see new stories in your feed."
     );
+    try {
+      const res = await fetch("/api/social/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followeeId: creator.id, followeeType: "creator" }),
+      });
+      if (!res.ok) {
+        setFollowingCreator(wasFollowing);
+      }
+    } catch {
+      setFollowingCreator(wasFollowing);
+    }
   };
 
   const handleReport = () => {
