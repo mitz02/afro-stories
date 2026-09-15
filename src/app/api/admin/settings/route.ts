@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAllFlags } from "@/lib/supabase/features";
+import { isAdminUser } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -11,22 +12,9 @@ const VALID_KEYS = new Set([
   "follows_enabled",
 ]);
 
-async function isAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-  const { data } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  return (data as { role?: string } | null)?.role === "admin";
-}
-
 export async function GET() {
   const supabase = await createClient();
-  if (!(await isAdmin(supabase))) {
+  if (!(await isAdminUser(supabase))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
   const flags = await getAllFlags();
@@ -35,7 +23,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  if (!(await isAdmin(supabase))) {
+  if (!(await isAdminUser(supabase))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

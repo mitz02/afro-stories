@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/navbar";
+import { AdminShell } from "@/components/admin/admin-shell";
 import { Toaster } from "@/components/toaster";
 
 export default function AdminLayout({
@@ -7,10 +7,9 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-charcoal">
-      <Navbar />
-      <main className="relative flex-1">{children}</main>
+    <AdminShell>
+      {children}
       <Toaster />
-    </div>
+    </AdminShell>
   );
 }
