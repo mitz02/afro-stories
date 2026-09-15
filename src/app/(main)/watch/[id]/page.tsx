@@ -182,6 +182,8 @@ export default function WatchPage() {
 
   const [liked, setLiked] = useState(false);
   const [followingCreator, setFollowingCreator] = useState(false);
+  const [flags, setFlags] = useState({ viewsTracking: true, likes: true, comments: true, follows: true });
+  const viewTrackedRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!video) return;
@@ -200,6 +202,38 @@ export default function WatchPage() {
     })();
     return () => { cancelled = true; };
   }, [video]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/social/flags");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { viewsTracking?: boolean; likes?: boolean; comments?: boolean; follows?: boolean };
+        if (cancelled) return;
+        setFlags({
+          viewsTracking: data.viewsTracking ?? true,
+          likes: data.likes ?? true,
+          comments: data.comments ?? true,
+          follows: data.follows ?? true,
+        });
+      } catch {
+        // leave defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const trackView = (vid: string) => {
+    if (!flags.viewsTracking) return;
+    if (viewTrackedRef.current.has(vid)) return;
+    viewTrackedRef.current.add(vid);
+    void fetch("/api/social/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId: vid }),
+    });
+  };
 
   if (dbLoading && !mockVideo) {
     return (
@@ -379,6 +413,7 @@ export default function WatchPage() {
                 episode={episode}
                 series={series}
                 onSelectEpisode={handleSelectEpisode}
+                onFirstPlay={trackView}
               />
             )}
             {lockActive && episode && (
@@ -411,6 +446,7 @@ export default function WatchPage() {
 
               {/* Action buttons */}
               <div className="flex items-center gap-2">
+                {flags.likes && (
                 <button
                   onClick={handleLike}
                   className={cn(
@@ -423,6 +459,7 @@ export default function WatchPage() {
                   <ThumbsUp className={cn("h-4 w-4", liked && "fill-current")} />
                   {formatNumber(effectiveLikes)}
                 </button>
+                )}
                 <button
                   onClick={handleShare}
                   className="flex items-center gap-1.5 rounded-full border border-white/[0.12] px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-all hover:border-gold/40 hover:text-gold"
@@ -474,6 +511,7 @@ export default function WatchPage() {
                       </p>
                     </div>
                   </Link>
+                  {flags.follows && (
                   <button
                     onClick={handleFollow}
                     className={cn(
@@ -495,6 +533,7 @@ export default function WatchPage() {
                       </>
                     )}
                   </button>
+                  )}
                 </div>
               )}
 
@@ -643,11 +682,13 @@ export default function WatchPage() {
       </div>
 
       {/* COMMENTS */}
+      {flags.comments && (
       <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 lg:col-start-1">
           <CommentSection videoId={video.id} />
         </div>
       </div>
+      )}
 
       {/* RELATED */}
       <div className="mt-12">

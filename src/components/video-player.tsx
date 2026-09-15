@@ -33,6 +33,7 @@ interface VideoPlayerProps {
   episode?: Episode;
   series?: Series;
   onSelectEpisode?: (episodeId: string, videoId: string) => void;
+  onFirstPlay?: ((videoId: string) => void) | undefined;
 }
 
 export function VideoPlayer({
@@ -45,6 +46,7 @@ export function VideoPlayer({
   episode,
   series,
   onSelectEpisode,
+  onFirstPlay,
 }: VideoPlayerProps) {
   const mode = hlsUrl ? "hls" : "sim";
   const [playing, setPlaying] = useState(false);
@@ -65,8 +67,20 @@ export function VideoPlayer({
   const controlsTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const playingRef = useRef(false);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
+  const firedPlayRef = useRef(false);
   const { setProgress, getProgress } = useWatchProgressStore();
   const startProgress = getProgress(videoId);
+
+  const notifyFirstPlay = () => {
+    if (firedPlayRef.current) return;
+    firedPlayRef.current = true;
+    onFirstPlay?.(videoId);
+  };
+
+  // Reset the one-shot "view counted" flag when navigating between episodes.
+  useEffect(() => {
+    firedPlayRef.current = false;
+  }, [videoId]);
 
   // Load the HLS manifest for real Bunny videos.
   useEffect(() => {
@@ -135,6 +149,7 @@ export function VideoPlayer({
       const next = !playingRef.current;
       playingRef.current = next;
       setPlaying(next);
+      if (next) notifyFirstPlay();
     }
     resetControlsTimer();
   };
@@ -247,6 +262,7 @@ export function VideoPlayer({
           onPlay={() => {
             setPlaying(true);
             playingRef.current = true;
+            notifyFirstPlay();
           }}
           onPause={() => {
             setPlaying(false);

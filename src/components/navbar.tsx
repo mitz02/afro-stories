@@ -14,6 +14,7 @@ import {
   Plus,
   LogOut,
   Wallet,
+  Shield,
 } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -137,6 +138,10 @@ const active =
                 <DropdownMenuItem render={<Link href="/dashboard" />}>
                   <Plus className="mr-2 h-4 w-4" />
                   Creator Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/admin" />}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Dashboard
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive focus:text-destructive">
