@@ -61,7 +61,9 @@ export async function POST(req: NextRequest) {
   // Find our row first — if Bunny still encodes a video we don't track, ack silently.
   const { data: existing } = await service
     .from("videos")
-    .select("id, status, processing_status, thumbnail, thumbnail_urls")
+    .select(
+      "id, status, processing_status, thumbnail, thumbnail_urls, series_id, episode_id"
+    )
     .eq("bunny_video_id", VideoGuid)
     .maybeSingle();
   if (!existing) {
@@ -120,6 +122,40 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", existing.id);
+
+  // Promote the parent series + linked episode row when this video goes live,
+  // so `/my-series` and `/episodes` reflect published status immediately.
+  if (publishedFromProcessing) {
+    const publishedAt = new Date().toISOString();
+    const row = existing as {
+      series_id: string | null;
+      episode_id: string | null;
+    };
+
+    if (row.episode_id) {
+      await service
+        .from("episodes")
+        .update({
+          duration: details.length ?? 0,
+          published_at: publishedAt,
+          updated_at: publishedAt,
+        })
+        .eq("id", row.episode_id)
+        .is("video_id", existing.id);
+    }
+
+    if (row.series_id) {
+      await service
+        .from("series")
+        .update({
+          status: "published",
+          average_episode_duration: details.length ?? 0,
+          updated_at: publishedAt,
+        })
+        .eq("id", row.series_id)
+        .eq("status", "processing");
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
