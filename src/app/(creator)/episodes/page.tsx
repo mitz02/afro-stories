@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   Lock,
@@ -12,7 +13,6 @@ import {
   Coins,
   Layers,
   Loader2,
-  Film,
 } from "lucide-react";
 import { CinemaImage } from "@/components/ui/cinema-image";
 import { PremiumBadge } from "@/components/ui/badges";
@@ -20,10 +20,10 @@ import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatNumber, formatDuration } from "@/lib/utils";
 
-const PLACEHOLDER =
+const fallbackThumb =
   "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=640&q=80";
 
-interface SeriesRow {
+interface OwnedSeries {
   id: string;
   title: string;
   cover_image: string | null;
@@ -37,7 +37,7 @@ interface EpisodeRow {
   title: string;
   description: string | null;
   thumbnail: string | null;
-  video_id: string | null;
+  video_id: string;
   duration: number;
   monetization: string;
   unlock_price: number;
@@ -49,11 +49,11 @@ interface EpisodeRow {
 
 export default function EpisodesPage() {
   const { user } = useSessionProfile();
-  const [seriesList, setSeriesList] = React.useState<SeriesRow[]>([]);
+  const [seriesList, setSeriesList] = React.useState<OwnedSeries[]>([]);
   const [episodes, setEpisodes] = React.useState<EpisodeRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [seriesFilter, setSeriesFilter] = React.useState("all");
+  const [seriesFilter, setSeriesFilter] = React.useState<string>("all");
   const fetchedFor = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -72,21 +72,28 @@ export default function EpisodesPage() {
         setLoading(false);
         return;
       }
-      const { data: seriesRows } = await supabase
+
+      const { data: seriesRows, error: seriesErr } = await supabase
         .from("series")
         .select("id, title, cover_image")
         .eq("creator_id", profileId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false });
       if (cancelled) return;
-      const sList = (seriesRows ?? []) as unknown as SeriesRow[];
-      setSeriesList(sList);
-
-      if (sList.length === 0) {
+      if (seriesErr) {
+        setError(seriesErr.message);
         setLoading(false);
         return;
       }
-      const ids = sList.map((s) => s.id);
-      const { data: eps, error: epsErr } = await supabase
+      const owned = (seriesRows ?? []) as unknown as OwnedSeries[];
+      setSeriesList(owned);
+
+      if (owned.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const ids = owned.map((s) => s.id);
+      const { data: episodeRows, error: epErr } = await supabase
         .from("episodes")
         .select(
           "id, series_id, season_number, episode_number, title, description, thumbnail, video_id, duration, monetization, unlock_price, views, likes, comments_count, published_at"
@@ -95,10 +102,10 @@ export default function EpisodesPage() {
         .order("season_number", { ascending: true })
         .order("episode_number", { ascending: true });
       if (cancelled) return;
-      if (epsErr) {
-        setError(epsErr.message);
+      if (epErr) {
+        setError(epErr.message);
       } else {
-        setEpisodes((eps ?? []) as unknown as EpisodeRow[]);
+        setEpisodes((episodeRows ?? []) as unknown as EpisodeRow[]);
       }
       fetchedFor.current = user.id;
       setLoading(false);
@@ -108,10 +115,15 @@ export default function EpisodesPage() {
     };
   }, [user]);
 
-  const filteredSeries =
-    seriesFilter === "all"
-      ? seriesList
-      : seriesList.filter((s) => s.id === seriesFilter);
+  const grouped = useMemo(() => {
+    const groupedSeries = seriesList.filter(
+      (s) => seriesFilter === "all" || s.id === seriesFilter
+    );
+    return groupedSeries.map((s) => ({
+      series: s,
+      items: episodes.filter((e) => e.series_id === s.id),
+    }));
+  }, [seriesList, episodes, seriesFilter]);
 
   const totalViews = episodes.reduce((sum, e) => sum + (e.views ?? 0), 0);
   const totalUnlocks = episodes
@@ -156,10 +168,12 @@ export default function EpisodesPage() {
 
       {seriesList.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.1] py-16 text-center">
-          <Film className="h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-3 font-display text-sm font-bold text-cream">No episodes yet</p>
+          <Layers className="h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-display text-sm font-bold text-cream">
+            No series yet
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Upload a story in Series Episode mode to start publishing episodes.
+            Upload a story in Series Episode mode to start building episodes.
           </p>
         </div>
       ) : (
@@ -195,98 +209,94 @@ export default function EpisodesPage() {
 
           {/* Episodes */}
           <div className="space-y-5">
-            {filteredSeries.map((s) => {
-              const seriesEpisodes = episodes.filter((e) => e.series_id === s.id);
-              return (
-                <div key={s.id}>
-                  <h3 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cream">
-                    <Layers className="h-4 w-4 text-gold" />
-                    {s.title}
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {seriesEpisodes.length} episodes
-                    </span>
-                  </h3>
-                  <div className="space-y-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
-                    {seriesEpisodes.length === 0 ? (
-                      <p className="px-3 py-4 text-xs text-muted-foreground">
-                        No episodes yet in this series.
-                      </p>
-                    ) : (
-                      seriesEpisodes.map((e, idx) => (
-                        <div
-                          key={e.id}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-white/[0.04]",
-                            idx !== 0 && "border-t border-white/[0.03]"
-                          )}
-                        >
-                          <Link href={`/watch/${e.video_id}`} className="relative w-28 shrink-0">
-                            <div className="relative aspect-video overflow-hidden rounded-lg">
-                              <CinemaImage
-                                src={e.thumbnail || s.cover_image || PLACEHOLDER}
-                                alt={e.title}
-                                fill
-                                sizes="112px"
-                                gradient="from-black/60 to-black"
-                              />
-                              {e.monetization === "premium" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                                  <Lock className="h-4 w-4 text-gold" />
-                                </div>
-                              )}
-                            </div>
-                            <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-cream">
-                              {formatDuration(e.duration)}
-                            </span>
-                          </Link>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-gold">
-                                S{e.season_number}E{e.episode_number}
-                              </span>
-                              {e.monetization === "premium" && <PremiumBadge />}
-                            </div>
-                            <Link
-                              href={`/watch/${e.video_id}`}
-                              className="mt-0.5 block truncate text-sm font-bold text-cream hover:text-gold"
-                            >
-                              {e.title}
-                            </Link>
-                            <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Eye className="h-3 w-3" /> {formatNumber(e.views ?? 0)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Heart className="h-3 w-3" /> {formatNumber(e.likes ?? 0)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <MessageCircle className="h-3 w-3" />{" "}
-                                {formatNumber(e.comments_count ?? 0)}
-                              </span>
-                              {e.monetization === "premium" && (
-                                <span className="flex items-center gap-1 font-semibold text-gold">
-                                  <Coins className="h-3 w-3" />{" "}
-                                  {formatNumber(Math.round((e.views ?? 0) * 0.03))} unlocks
-                                </span>
-                              )}
-                            </div>
+            {grouped.map(({ series, items }) => (
+              <div key={series.id}>
+                <h3 className="mb-3 font-display text-base font-bold text-cream">
+                  {series.title}
+                  <span className="ml-2 text-xs font-medium text-muted-foreground">
+                    {items.length} episodes
+                  </span>
+                </h3>
+                <div className="space-y-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
+                  {items.length === 0 ? (
+                    <p className="px-3 py-4 text-xs text-muted-foreground">
+                      No episodes in this series yet.
+                    </p>
+                  ) : (
+                    items.map((e, idx) => (
+                      <div
+                        key={e.id}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-white/[0.04]",
+                          idx !== 0 && "border-t border-white/[0.03]"
+                        )}
+                      >
+                        <Link href={`/watch/${e.video_id}`} className="relative w-28 shrink-0">
+                          <div className="relative aspect-video overflow-hidden rounded-lg">
+                            <CinemaImage
+                              src={e.thumbnail || series.cover_image || fallbackThumb}
+                              alt={e.title}
+                              fill
+                              sizes="112px"
+                              gradient="from-black/60 to-black"
+                            />
+                            {e.monetization === "premium" && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                <Lock className="h-4 w-4 text-gold" />
+                              </div>
+                            )}
                           </div>
+                          <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-semibold text-cream">
+                            {formatDuration(e.duration)}
+                          </span>
+                        </Link>
 
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-gold">
+                              S{e.season_number}E{e.episode_number}
+                            </span>
+                            {e.monetization === "premium" && <PremiumBadge />}
+                          </div>
                           <Link
                             href={`/watch/${e.video_id}`}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] text-muted-foreground transition-all hover:border-gold hover:text-gold"
-                            aria-label={`Play ${e.title}`}
+                            className="mt-0.5 block truncate text-sm font-bold text-cream hover:text-gold"
                           >
-                            <Play className="h-4 w-4" />
+                            {e.title}
                           </Link>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {formatNumber(e.views ?? 0)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Heart className="h-3 w-3" /> {formatNumber(e.likes ?? 0)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="h-3 w-3" />{" "}
+                              {formatNumber(e.comments_count ?? 0)}
+                            </span>
+                            {e.monetization === "premium" && (
+                              <span className="flex items-center gap-1 font-semibold text-gold">
+                                <Coins className="h-3 w-3" />{" "}
+                                {formatNumber(Math.round((e.views ?? 0) * 0.03))} unlocks
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      ))
-                    )}
-                  </div>
+
+                        <Link
+                          href={`/watch/${e.video_id}`}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] text-muted-foreground transition-all hover:border-gold hover:text-gold"
+                          aria-label={`Play ${e.title}`}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    ))
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </>
       )}
