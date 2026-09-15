@@ -160,46 +160,54 @@ export function CommentSection({ videoId }: { videoId: string }) {
       </h3>
 
       {/* Input */}
-      <div className="mt-3 flex gap-3">
-        <Avatar className="h-9 w-9 border border-gold/30">
-          <AvatarFallback className="text-xs text-white bg-gradient-to-br from-purple-deep to-black">
-            {user?.display_name?.[0] ?? "?"}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 focus-within:border-gold/50">
-          <input
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSubmit()}
-            placeholder={
-              replyTo
-                ? "Write a reply…"
-                : "Share your thoughts on this story…"
-            }
-            className="flex-1 bg-transparent py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-          />
-          {replyTo && (
-            <button
-              onClick={() => setReplyTo(null)}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={handleSubmit}
-            disabled={!newComment.trim() || posting}
-            className="rounded-lg p-1.5 text-gold transition-colors hover:bg-gold/10 disabled:opacity-30"
-            aria-label="Post comment"
-          >
-            {posting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </button>
+      {!user ? (
+        <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            <a href="/login" className="font-semibold text-gold hover:underline">Sign in</a> to join the conversation.
+          </p>
         </div>
-      </div>
+      ) : (
+        <div className="mt-3 flex gap-3">
+          <Avatar className="h-9 w-9 border border-gold/30">
+            <AvatarFallback className="text-xs text-white bg-gradient-to-br from-purple-deep to-black">
+              {user.display_name?.[0] ?? "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 focus-within:border-gold/50">
+            <input
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSubmit()}
+              placeholder={
+                replyTo
+                  ? "Write a reply…"
+                  : "Share your thoughts on this story…"
+              }
+              className="flex-1 bg-transparent py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+            />
+            {replyTo && (
+              <button
+                onClick={() => setReplyTo(null)}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={!newComment.trim() || posting}
+              className="rounded-lg p-1.5 text-gold transition-colors hover:bg-gold/10 disabled:opacity-30"
+              aria-label="Post comment"
+            >
+              {posting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       <div className="mt-4 space-y-5">
@@ -229,6 +237,7 @@ export function CommentSection({ videoId }: { videoId: string }) {
               setNewComment("");
             }}
             currentUserId={user?.id}
+            isLoggedIn={!!user}
           >
             {comment.replies?.map((reply) => (
               <CommentItem
@@ -241,6 +250,7 @@ export function CommentSection({ videoId }: { videoId: string }) {
                   setNewComment("");
                 }}
                 currentUserId={user?.id}
+                isLoggedIn={!!user}
               />
             ))}
           </CommentItem>
@@ -257,6 +267,7 @@ function CommentItem({
   onReply,
   children,
   currentUserId,
+  isLoggedIn,
 }: {
   comment: DbComment;
   liked: boolean;
@@ -264,6 +275,7 @@ function CommentItem({
   onReply: () => void;
   children?: React.ReactNode;
   currentUserId?: string;
+  isLoggedIn: boolean;
 }) {
   const isOwn = comment.user_id === currentUserId;
   const isPinned = comment.pinned;
@@ -308,7 +320,7 @@ function CommentItem({
         </p>
         <div className="mt-1.5 flex items-center gap-4">
           <button
-            onClick={onToggleLike}
+            onClick={isLoggedIn ? onToggleLike : () => window.location.href = "/login"}
             className={cn(
               "flex items-center gap-1 text-xs transition-colors",
               liked ? "text-gold" : "text-muted-foreground hover:text-foreground"
@@ -318,7 +330,7 @@ function CommentItem({
             {formatNumber(effectiveLikes)}
           </button>
           <button
-            onClick={onReply}
+            onClick={isLoggedIn ? onReply : () => window.location.href = "/login"}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <MessageCircle className="h-3.5 w-3.5" />
