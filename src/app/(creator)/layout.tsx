@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -21,10 +22,18 @@ import {
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { useState } from "react";
-import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { createClient } from "@/lib/supabase/client";
+import { stickerAvatar } from "@/lib/stickers";
 import { Loader2 } from "lucide-react";
+
+interface SessionProfile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  role: "viewer" | "creator" | "admin";
+  avatar: string | null;
+  email: string;
+}
 
 interface CreatorIdentity {
   display_name: string | null;
@@ -84,12 +93,58 @@ export default function CreatorLayout({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useSessionProfile();
-  const [identity, setIdentity] = React.useState<CreatorIdentity | null>(null);
-  const [identityLoading, setIdentityLoading] = React.useState(true);
+  const [user, setUser] = useState<SessionProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [identity, setIdentity] = useState<CreatorIdentity | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(true);
   const fetchedFor = React.useRef<string | null>(null);
 
-  React.useEffect(() => {
+  // Only fetch session on client side
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session) {
+        const email = session.user.email ?? "";
+        const fallback = email.split("@")[0] || "Guest";
+        const { data } = await supabase
+          .from("users")
+          .select("id, username, display_name, role, avatar")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        const metaAvatar = session.user.user_metadata?.avatar as string | undefined;
+        const avatar = data?.avatar ?? metaAvatar ?? stickerAvatar(session.user.id + (session.user.email ?? ""));
+        setUser({
+          id: session.user.id,
+          username: data?.username ?? fallback,
+          display_name: data?.display_name ?? fallback,
+          role: data?.role ?? "viewer",
+          avatar,
+          email,
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    })();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      if (session) {
+        // Refresh will be handled by the effect below
+      } else {
+        setUser(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Fetch creator identity when user changes
+  useEffect(() => {
     if (!user || fetchedFor.current === user.id) return;
     let cancelled = false;
     const supabase = createClient();
