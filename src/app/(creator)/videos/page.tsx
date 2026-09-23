@@ -1,4 +1,4 @@
-"use client";
+"use client";`nexport const dynamic = "force-dynamic";
 
 import * as React from "react";
 import { useMemo, useRef } from "react";

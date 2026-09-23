@@ -1,4 +1,4 @@
-"use client";
+"use client";`nexport const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { Search, UserCheck, Inbox, X, Loader2 } from "lucide-react";

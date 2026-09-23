@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { Heart, Search, Reply, Inbox, MoreVertical, Loader2, Send } from "lucide-react";
