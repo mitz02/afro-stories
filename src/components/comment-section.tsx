@@ -9,7 +9,7 @@ import {
   Flag,
   Loader2,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { timeAgo, formatNumber, cn } from "@/lib/utils";
 
@@ -169,6 +169,13 @@ export function CommentSection({ videoId }: { videoId: string }) {
       ) : (
         <div className="mt-3 flex gap-3">
           <Avatar className="h-9 w-9 border border-gold/30">
+            {user.avatar && (
+              <AvatarImage
+                src={user.avatar}
+                alt={user.display_name ?? "You"}
+                className="h-full w-full object-cover"
+              />
+            )}
             <AvatarFallback className="text-xs text-white bg-gradient-to-br from-purple-deep to-black">
               {user.display_name?.[0] ?? "?"}
             </AvatarFallback>

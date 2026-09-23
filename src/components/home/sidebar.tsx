@@ -6,11 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Compass,
-  Users,
   Shapes,
   Trophy,
-  Library,
-  Clock,
   ShoppingBag,
   LayoutDashboard,
   Upload,
@@ -29,15 +26,12 @@ import { cn } from "@/lib/utils";
 const mainNav = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
-  { href: "/creators", label: "Creators", icon: Users },
   { href: "/explore", label: "Categories", icon: Shapes },
   { href: "/shorts", label: "Rankings", icon: Trophy },
-  { href: "/watch/history", label: "My Library", icon: Library },
-  { href: "/watch/history", label: "Watch Later", icon: Clock },
   { href: "/wallet", label: "Purchases", icon: ShoppingBag },
 ];
 
-const personalItems = ["My Library", "Watch Later", "Purchases"];
+const personalItems = ["Purchases"];
 
 const creatorNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -292,9 +286,21 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0d1226]/90 px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-sm font-black text-neutral-950 ring-2 ring-amber-400/60">
-              {initial}
-            </div>
+            <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#0e1329] ring-2 ring-amber-400/60"
+                style={{ backgroundImage: user.avatar ? "none" : "linear-gradient(135deg, #f59e0b, #b45309)" }}
+              >
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={displayName ?? "Profile"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-sm font-black text-white">
+                    {initial}
+                  </span>
+                )}
+              </div>
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-xs font-bold text-white">
                 {displayName}

@@ -1,6 +1,8 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
+import type { HomeUploadItem } from "@/app/api/home/uploads/route";
 import Image from "next/image";
 import { ArrowRight, Play } from "lucide-react";
 import { featuredStories, type FeaturedStoryItem } from "@/lib/data/home-data";
@@ -88,6 +90,38 @@ function StoryCard({ story }: { story: FeaturedStoryItem }) {
 }
 
 export function HomeFeatured() {
+  const [realCards, setRealCards] = React.useState<FeaturedStoryItem[]>([]);
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadRealUploads() {
+      try {
+        const res = await fetch("/api/home/uploads");
+        const body = (await res.json()) as { videos?: HomeUploadItem[] };
+        if (cancelled || !Array.isArray(body.videos)) return;
+        setRealCards(body.videos.map(toFeaturedCard));
+      } catch {
+        // keep dummy grid as-is on failure
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+
+    void loadRealUploads();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Real uploads replace the first `realCards.length` dummy entries;
+  // the remaining dummy cards stay so the grid never shrinks.
+  const merged =
+    loaded && realCards.length > 0
+      ? [...realCards, ...featuredStories.slice(realCards.length)]
+      : featuredStories;
+
   return (
     <section className="space-y-3 sm:space-y-4">
       {/* Section Header */}
@@ -109,10 +143,24 @@ export function HomeFeatured() {
 
       {/* 5-column responsive grid matching reference design */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-3.5">
-        {featuredStories.map((story) => (
+        {merged.map((story) => (
           <StoryCard key={story.id} story={story} />
         ))}
       </div>
     </section>
   );
+}
+
+function toFeaturedCard(upload: HomeUploadItem): FeaturedStoryItem {
+  return {
+    id: upload.id,
+    title: upload.title,
+    author: upload.author,
+    status: upload.status === "Completed" ? "Completed" : "In Progress",
+    tags: upload.tags,
+    price: upload.price,
+    image: upload.image,
+    fullCard: upload.image,
+    href: `/watch/${upload.id}`,
+  };
 }

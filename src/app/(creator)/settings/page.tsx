@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Camera,
   Save,
   Lock,
   Bell,
@@ -12,11 +11,14 @@ import {
   Palette,
   Check,
   Loader2,
+  Shuffle,
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { creators } from "@/lib/data/creators";
 import { useToastStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { stickerAvatar, randomStickerSeed } from "@/lib/stickers";
 import type { CountryCode } from "@/types";
 
 const tabs = ["Channel", "Account", "Notifications", "Payments", "Privacy"] as const;
@@ -56,21 +58,55 @@ const countryNames: Record<CountryCode, string> = {
 export default function SettingsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Channel");
   const [saving, setSaving] = useState(false);
+  const [rerolling, setRerolling] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
-  const creator = creators[0];
+  const { user, refresh } = useSessionProfile();
 
   const [form, setForm] = useState({
-    displayName: creator.displayName,
-    username: creator.username,
-    bio: creator.bio,
-    city: creator.city,
-    country: creator.country,
+    displayName: "",
+    username: "",
+    bio: "Bringing African folklore to a new generation.",
+    city: "Lagos",
+    country: "NG" as CountryCode,
     whatsappEnabled: true,
-    email: "uwa@aafstories.com",
+    email: "",
     payoutEnabled: true,
     minimumPayout: 10000,
     publicTooltips: true,
   });
+
+  useEffect(() => {
+    if (!user) return;
+    setForm((f) => ({
+      ...f,
+      displayName: user.display_name ?? f.displayName,
+      username: user.username || f.username,
+      email: user.email || f.email,
+    }));
+  }, [user]);
+
+  const rerollAvatar = async () => {
+    if (!user) {
+      showToast("Sign in required", "Sign in to update your avatar.");
+      return;
+    }
+    setRerolling(true);
+    try {
+      const next = stickerAvatar(randomStickerSeed());
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("users")
+        .update({ avatar: next })
+        .eq("id", user.id);
+      if (error) throw new Error(error.message);
+      await refresh();
+      showToast("New avatar assigned", "Your sticker avatar has been updated.");
+    } catch {
+      showToast("Update failed", "Could not update your avatar. Try again.");
+    } finally {
+      setRerolling(false);
+    }
+  };
 
   const [emailNotifs, setEmailNotifs] = useState({
     newFollower: true,
@@ -122,23 +158,26 @@ export default function SettingsPage() {
           <div className="flex items-center gap-5">
             <div className="relative">
               <Avatar className="h-20 w-20 border-2 border-gold/40">
-                <AvatarImage src={creator.avatar} alt={form.displayName} />
-                <AvatarFallback
-                  className={cn(
-                    "font-display text-2xl",
-                    creator.avatarGradient,
-                    "text-cream"
-                  )}
-                >
-                  {form.displayName.split(" ").map((n) => n[0]).join("")}
+                <AvatarImage
+                  src={user?.avatar ?? stickerAvatar(user?.email ?? "creator")}
+                  alt={form.displayName || "Avatar"}
+                />
+                <AvatarFallback className="font-display text-2xl text-cream bg-gradient-to-br from-violet-500 to-fuchsia-600">
+                  {(form.displayName || "AV").split(" ").map((n) => n[0]).slice(0, 2).join("")}
                 </AvatarFallback>
               </Avatar>
               <button
-                onClick={() => showToast("Coming soon", "Avatar uploads are coming soon.")}
-                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] bg-charcoal-raised text-muted-foreground transition-colors hover:text-gold"
+                onClick={rerollAvatar}
+                disabled={rerolling}
+                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] bg-charcoal-raised text-muted-foreground transition-colors hover:text-gold disabled:opacity-60"
                 aria-label="Change avatar"
+                title="Reroll sticker avatar"
               >
-                <Camera className="h-3.5 w-3.5" />
+                {rerolling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Shuffle className="h-3.5 w-3.5" />
+                )}
               </button>
             </div>
             <div>
@@ -146,7 +185,7 @@ export default function SettingsPage() {
                 Channel Avatar
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                JPG, PNG or GIF. Recommended 512×512.
+                Your unique sticker — tap the shuffle button to get a new one.
               </p>
             </div>
           </div>

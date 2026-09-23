@@ -94,12 +94,13 @@ export default function CreatorLayout({
     void (async () => {
       const { data: profile } = await supabase
         .from("creator_profiles")
-        .select("display_name, username, avatar_gradient, followers_count, total_videos, status")
+        .select("id, display_name, username, avatar_gradient, followers_count, total_videos, status")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
       if (profile) {
         const p = profile as {
+          id: string;
           display_name: string | null;
           username: string;
           avatar_gradient: string | null;
@@ -107,12 +108,17 @@ export default function CreatorLayout({
           total_videos: number;
           status: string;
         };
+        const { count } = await supabase
+          .from("videos")
+          .select("*", { count: "exact", head: true })
+          .eq("creator_id", p.id);
+        if (cancelled) return;
         setIdentity({
           display_name: p.display_name,
           username: p.username,
           avatar_gradient: p.avatar_gradient,
           followers_count: p.followers_count ?? 0,
-          total_videos: p.total_videos ?? 0,
+          total_videos: count ?? p.total_videos ?? 0,
           status: p.status,
         });
       }
@@ -156,13 +162,21 @@ export default function CreatorLayout({
         <div className="border-b border-white/[0.06] px-4 py-4">
           <div className="flex items-center gap-3 rounded-xl border border-gold/25 bg-gradient-to-br from-gold/[0.08] to-transparent p-3">
             <div
-              className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br font-display text-lg font-bold text-white",
-                gradient
-              )}
+              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#0e1329] font-display text-lg font-bold text-white"
+              style={{
+                backgroundImage: user?.avatar
+                  ? "none"
+                  : `linear-gradient(135deg, ${gradient.split(" ")[0].replace("from-", "")}, ${gradient.split(" ")[1]?.replace("to-", "") ?? ""})`,
+              }}
             >
               {identityLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+              ) : user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 userInitials
               )}
@@ -266,12 +280,24 @@ export default function CreatorLayout({
               </span>
             </div>
             <div
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br font-display text-sm font-bold text-white",
-                gradient
-              )}
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[#0e1329] font-display text-sm font-bold text-white"
+              style={{
+                backgroundImage: user?.avatar
+                  ? "none"
+                  : `linear-gradient(135deg, ${gradient.split(" ")[0].replace("from-", "")}, ${gradient.split(" ")[1]?.replace("to-", "") ?? ""})`,
+              }}
             >
-              {identityLoading ? "…" : userInitials}
+              {identityLoading ? (
+                "…"
+              ) : user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                userInitials
+              )}
             </div>
           </div>
         </header>

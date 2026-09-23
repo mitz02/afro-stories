@@ -440,15 +440,15 @@ export default function WatchPage() {
                     : null
                 }
                 onSelectEpisode={handleSelectEpisode}
-                onFirstPlay={trackView}
+                onFirstPlay={!lockActive ? trackView : undefined}
               />
             )}
-            {lockActive && episode && (
+            {lockActive && (
               <EpisodeLockOverlay
-                episodeId={episode.id}
+                episodeId={episode?.id ?? video.id}
                 videoId={video.id}
-                unlockPrice={episode.unlockPrice ?? video.unlockPrice ?? 50}
-                episodeTitle={episode.title}
+                unlockPrice={episode?.unlockPrice ?? video.unlockPrice ?? 50}
+                episodeTitle={episode?.title ?? video.title}
                 seriesTitle={series?.title}
               />
             )}

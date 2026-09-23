@@ -8,6 +8,7 @@ import { AdminBrand } from "@/components/admin/admin-sidebar";
 import { useToastStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { cn } from "@/lib/utils";
+import { NotificationPanel } from "@/components/notification-panel";
 
 const pageTitles: { match: string; title: string }[] = [
   { match: "/admin/settings", title: "Feature Controls" },
@@ -79,17 +80,7 @@ export function AdminTopBar({ onMenu }: { onMenu: () => void }) {
             View site
           </Link>
 
-          <button
-            onClick={() => showToast("No new alerts", "You're all caught up, admin.")}
-            aria-label="Notifications"
-            className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/10 bg-[#0e1329]/80 text-zinc-300 transition-colors hover:border-white/20 hover:text-white"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute right-0.5 top-0.5 flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-50" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-400" />
-            </span>
-          </button>
+          <NotificationPanel />
 
           {/* Profile */}
           <div className="relative">
@@ -98,8 +89,20 @@ export function AdminTopBar({ onMenu }: { onMenu: () => void }) {
               aria-label="Open admin profile menu"
               className="flex items-center gap-2.5 rounded-full p-0.5 transition-colors hover:bg-white/[0.06]"
             >
-              <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 text-sm font-black text-neutral-950 ring-2 ring-amber-400/80 shadow-md">
-                {initial}
+              <div className="relative h-8 w-8 sm:h-9 sm:w-9 overflow-hidden rounded-full bg-[#0e1329] ring-2 ring-amber-400/80 shadow-md"
+                style={{ backgroundImage: user?.avatar ? "none" : "linear-gradient(135deg, #f59e0b, #b45309)" }}
+              >
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={displayName ?? "Admin"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-sm font-black text-white">
+                    {initial}
+                  </span>
+                )}
               </div>
               <div className="hidden text-left xl:block leading-tight pr-1">
                 <p className="text-xs font-bold text-white">{displayName}</p>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,17 @@ const PARTICLES_LOGIN = [
 ];
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? searchParams.get("next") ?? "";
   const { toasts, dismissToast } = useToastStore();
   const login = useToastStore.getState;
   const [email, setEmail] = useState("");
@@ -103,7 +113,9 @@ export default function LoginPage() {
 
       useToastStore.getState().showToast(toastMessages.success.title, toastMessages.success.description);
       setShowSuccess(true);
-      setTimeout(() => router.push(roleHomePath(role)), 1200);
+      // If there's a redirect URL from the lock overlay, go back to the story
+      const destination = redirectTo && redirectTo.startsWith("/") ? redirectTo : roleHomePath(role);
+      setTimeout(() => router.push(destination), 1200);
     } catch {
       useToastStore.getState().showToast(toastMessages.error.title, toastMessages.error.description);
     } finally {

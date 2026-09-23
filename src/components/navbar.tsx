@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -31,6 +32,8 @@ import { SearchModal } from "@/components/search-modal";
 import { NotificationPanel } from "@/components/notification-panel";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { stickerAvatar } from "@/lib/stickers";
 
 const navLinks = [
   { href: "/home", label: "Home", icon: Home },
@@ -42,6 +45,8 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useSessionProfile();
   const { setSearchOpen, notificationsOpen, setNotificationsOpen } = useUiStore();
   const [scrolled, setScrolled] = useState(false);
 
@@ -108,48 +113,68 @@ const active =
               onOpenChange={setNotificationsOpen}
             />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger className="relative h-9 w-9 overflow-hidden rounded-full border border-gold/40 transition-transform hover:scale-105">
-                <Avatar className="h-full w-full">
-                  <AvatarImage src="/avatars/amara.png" alt="Amara" />
-                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-fuchsia-600 text-xs text-white">
-                    AO
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <p className="text-sm font-medium text-cream">Amara Okafor</p>
-                  <p className="text-xs text-muted-foreground">
-                    @amara · Lagos, NG
-                  </p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  render={<Link href="/creator/c_chiefuwa" />}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/wallet" />}>
-                  <Wallet className="mr-2 h-4 w-4" />
-                  Wallet · 1,250 pts
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/dashboard" />}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Creator Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/admin" />}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  Admin Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="relative h-9 w-9 overflow-hidden rounded-full border border-gold/40 transition-transform hover:scale-105">
+                  <Avatar className="h-full w-full">
+                    <AvatarImage
+                      src={user.avatar ?? stickerAvatar(user.email)}
+                      alt={user.display_name ?? "Profile"}
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-fuchsia-600 text-xs text-white">
+                      {(user.display_name ?? user.username ?? "?").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="text-sm font-medium text-cream">
+                      {user.display_name ?? user.username}
+                    </p>
+                    <p className="text-xs text-muted-foreground">@{user.username}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    render={<Link href="/creator/c_chiefuwa" />}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/wallet" />}>
+                    <Wallet className="mr-2 h-4 w-4" />
+                    Wallet
+                  </DropdownMenuItem>
+                  <DropdownMenuItem render={<Link href="/dashboard" />}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Creator Dashboard
+                  </DropdownMenuItem>
+                  {user.role === "admin" && (
+                    <DropdownMenuItem render={<Link href="/admin" />}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => {
+                      void signOut();
+                      router.push("/");
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden rounded-full bg-gradient-to-r from-gold to-burnt-orange px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 sm:inline-block"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         </nav>
       </header>

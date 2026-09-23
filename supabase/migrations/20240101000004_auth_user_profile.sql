@@ -12,6 +12,8 @@ DECLARE
   v_username TEXT;
   v_display TEXT;
   v_role user_role;
+  v_avatar TEXT;
+  v_avatar_seed TEXT;
 BEGIN
   v_username := COALESCE(
     NULLIF(TRIM(NEW.raw_user_meta_data->>'username'), ''),
@@ -26,14 +28,25 @@ BEGIN
     NULLIF(NEW.raw_user_meta_data->>'role', '')::user_role,
     'viewer'::user_role
   );
+  -- Sticker avatar assigned at registration. Falls back to a per-user
+  -- DiceBear seed when the client didn't provide one.
+  v_avatar_seed := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'avatar_seed'), ''),
+    NEW.id::text
+  );
+  v_avatar := COALESCE(
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'avatar'), ''),
+    'https://api.dicebear.com/9.x/avataaars-neutral/svg?seed=' || v_avatar_seed
+  );
 
-  INSERT INTO public.users (id, username, display_name, email, role)
+  INSERT INTO public.users (id, username, display_name, email, role, avatar)
   VALUES (
     NEW.id,
     v_username,
     v_display,
     NEW.email,
-    v_role
+    v_role,
+    v_avatar
   );
 
   RETURN NEW;

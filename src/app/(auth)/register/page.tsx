@@ -13,6 +13,7 @@ import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastVi
 import { useToastStore } from "@/lib/store";
 import { cn, roleHomePath } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { randomStickerSeed, stickerAvatar } from "@/lib/stickers";
 
 const toastMessages = {
   success: { title: "Account created!", description: "Welcome to Aafstories. Redirecting..." },
@@ -64,6 +65,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [assignedAvatar, setAssignedAvatar] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const validate = () => {
@@ -93,6 +95,9 @@ export default function RegisterPage() {
 
     try {
       const supabase = createClient();
+      const stickerSeed = randomStickerSeed();
+      const avatar = stickerAvatar(stickerSeed);
+      setAssignedAvatar(avatar);
       const { data, error } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password,
@@ -101,6 +106,8 @@ export default function RegisterPage() {
             display_name: formData.displayName.trim(),
             username: formData.displayName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 32),
             role: formData.role,
+            avatar,
+            avatar_seed: stickerSeed,
           },
           emailRedirectTo: `${window.location.origin}/login`,
         },
@@ -109,6 +116,19 @@ export default function RegisterPage() {
       if (error) {
         useToastStore.getState().showToast(toastMessages.error.title, error.message || toastMessages.error.description);
         return;
+      }
+
+      if (data.session && data.user) {
+        // Persist the assigned sticker right away so it shows as the
+        // profile picture across the site.
+        supabase
+          .from("users")
+          .update({ avatar })
+          .eq("id", data.user.id)
+          .then(
+            () => undefined,
+            () => undefined
+          );
       }
 
       if (data.session) {
@@ -527,11 +547,15 @@ export default function RegisterPage() {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="relative mx-auto max-w-sm rounded-3xl bg-charcoal-raised p-8 text-center border border-gold/30 shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-              <CheckCircle className="h-8 w-8 text-emerald-400" />
+            <div className="mx-auto overflow-hidden rounded-full border-2 border-gold/40 h-20 w-20">
+              <img
+                src={assignedAvatar ?? stickerAvatar("welcome")}
+                alt="Your sticker avatar"
+                className="h-full w-full object-cover"
+              />
             </div>
             <h3 className="mt-6 font-display text-2xl font-black text-cream">Welcome to Aafstories!</h3>
-            <p className="mt-2 text-muted-foreground">Your journey begins now. Redirecting...</p>
+            <p className="mt-2 text-muted-foreground">Your sticker profile is ready. Your journey begins now...</p>
           </div>
         </div>
       )}

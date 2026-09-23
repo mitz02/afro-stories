@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
@@ -69,6 +69,20 @@ function ExploreContent() {
   );
   const [sort, setSort] = useState("trending");
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const q = searchParams.get("q") ?? "";
+    setQuery(q);
+    const category = searchParams.get("category");
+    if (category && categoryGenre[category]) {
+      setActiveGenre(categoryGenre[category]);
+    } else if (searchParams.has("genre")) {
+      setActiveGenre(searchParams.get("genre"));
+    }
+    if (searchParams.has("country")) {
+      setActiveCountry(searchParams.get("country"));
+    }
+  }, [searchParams]);
 
   const filteredVideos = useMemo(() => {
     let list = [...videos];

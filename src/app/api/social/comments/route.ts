@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { stickerAvatar } from "@/lib/stickers";
 
 export const runtime = "nodejs";
 
@@ -93,19 +94,26 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, username")
+    .select("display_name, username, avatar")
     .eq("id", user.id)
     .maybeSingle();
+  const profileRow = profile as {
+    display_name?: string | null;
+    username?: string;
+    avatar?: string | null;
+  } | null;
   const displayName =
-    (profile as { display_name?: string | null; username?: string })?.display_name ??
-    (profile as { username?: string })?.username ??
+    profileRow?.display_name ??
+    profileRow?.username ??
     user.email?.split("@")[0] ??
     "User";
+  const avatar = profileRow?.avatar ?? stickerAvatar(user.id);
 
   const insert: Record<string, unknown> = {
     video_id: videoId,
     user_id: user.id,
     user_display_name: displayName,
+    user_avatar: avatar,
     text,
   };
   if (body.parentId) insert.parent_id = body.parentId;

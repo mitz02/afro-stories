@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { stickerAvatar } from "@/lib/stickers";
 
 export interface SessionProfile {
   id: string;
@@ -46,12 +47,31 @@ export function useSessionProfile(): UseSessionProfile {
       .eq("id", session.user.id)
       .maybeSingle();
 
+    const metaAvatar = session.user.user_metadata?.avatar as string | undefined;
+    const avatar =
+      data?.avatar ??
+      metaAvatar ??
+      stickerAvatar(session.user.id + (session.user.email ?? ""));
+
+    // Persist the sticker picked at registration (or the id-derived fallback)
+    // onto the public users row so DB-level consumers see it too.
+    if (data && !data.avatar && metaAvatar) {
+      supabase
+        .from("users")
+        .update({ avatar: metaAvatar })
+        .eq("id", session.user.id)
+        .then(
+          () => undefined,
+          () => undefined
+        );
+    }
+
     setUser({
       id: session.user.id,
       username: data?.username ?? fallback,
       display_name: data?.display_name ?? fallback,
       role: data?.role ?? "viewer",
-      avatar: data?.avatar ?? null,
+      avatar,
       email,
     });
 

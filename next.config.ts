@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "assets.aafstories.africa",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
       ...(streamHostname
         ? [
             {
