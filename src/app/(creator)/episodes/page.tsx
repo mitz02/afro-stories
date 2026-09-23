@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import * as React from "react";
 import { useMemo } from "react";
@@ -231,7 +233,7 @@ export default function EpisodesPage() {
                           idx !== 0 && "border-t border-white/[0.03]"
                         )}
                       >
-                        <Link href={`/watch/${e.video_id}`} className="relative w-28 shrink-0">
+                        <Link href={'/watch/' + e.video_id} className="relative w-28 shrink-0">
                           <div className="relative aspect-video overflow-hidden rounded-lg">
                             <CinemaImage
                               src={e.thumbnail || series.cover_image || fallbackThumb}
@@ -259,7 +261,7 @@ export default function EpisodesPage() {
                             {e.monetization === "premium" && <PremiumBadge />}
                           </div>
                           <Link
-                            href={`/watch/${e.video_id}`}
+                            href={'/watch/' + e.video_id}
                             className="mt-0.5 block truncate text-sm font-bold text-cream hover:text-gold"
                           >
                             {e.title}
@@ -285,9 +287,9 @@ export default function EpisodesPage() {
                         </div>
 
                         <Link
-                          href={`/watch/${e.video_id}`}
+                          href={'/watch/' + e.video_id}
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.12] text-muted-foreground transition-all hover:border-gold hover:text-gold"
-                          aria-label={`Play ${e.title}`}
+                          aria-label={'Play ' + e.title}
                         >
                           <Play className="h-4 w-4" />
                         </Link>

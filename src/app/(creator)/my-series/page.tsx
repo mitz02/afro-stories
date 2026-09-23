@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import * as React from "react";
 import Link from "next/link";
@@ -243,7 +245,7 @@ export default function MySeriesPage() {
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/series/${s.id}`}
+                    href={'/series/' + s.id}
                     className="rounded-full border border-white/[0.12] px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-gold/50 hover:text-gold"
                   >
                     View Page

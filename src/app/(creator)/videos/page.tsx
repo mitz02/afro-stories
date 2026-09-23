@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import * as React from "react";
 import { useMemo, useRef } from "react";
@@ -162,7 +164,7 @@ export default function VideosPage() {
               className="group flex flex-col gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 transition-colors hover:border-white/[0.14] sm:flex-row sm:items-center"
             >
               <Link
-                href={`/watch/${video.id}`}
+                href={'/watch/' + video.id}
                 className="relative block w-full shrink-0 sm:w-44"
               >
                 <div className="relative aspect-video w-full overflow-hidden rounded-xl">
@@ -200,7 +202,7 @@ export default function VideosPage() {
                   </span>
                 </div>
                 <Link
-                  href={`/watch/${video.id}`}
+                  href={'/watch/' + video.id}
                   className="mt-1.5 block truncate text-sm font-bold text-cream hover:text-gold"
                 >
                   {video.title}
@@ -261,7 +263,7 @@ export default function VideosPage() {
             <p className="mt-3 font-display text-sm font-bold text-cream">
               {tab === "All" && dbRows.length === 0
                 ? "No uploads yet"
-                : `No ${tab.toLowerCase()} videos`}
+                : 'No ' + tab.toLowerCase() + ' videos'}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {tab === "All" && dbRows.length === 0

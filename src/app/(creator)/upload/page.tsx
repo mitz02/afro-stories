@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -189,7 +191,7 @@ export default function UploadPage() {
     // non-videos up front with a clear message.
     if (file.type && !file.type.startsWith("video/")) {
       setUploadError(
-        `"${file.name}" is not a video file (detected type: ${file.type || "unknown"}).`
+        '"' + file.name + '" is not a video file (detected type: ' + (file.type || 'unknown') + ').'
       );
       setFiles([]);
       setUploading(false);
@@ -412,7 +414,7 @@ export default function UploadPage() {
         // toasts the moment encoding finishes.
         showToast(
           "Uploaded! Processing…",
-          `"${form.title || "Your story"}" is being encoded and will go live soon.`
+          '"' + (form.title || "Your story") + '" is being encoded and will go live soon.'
         );
         setProcessingStory({
           videoId: data.videoId ?? "",
@@ -452,7 +454,7 @@ export default function UploadPage() {
     let cancelled = false;
     const check = async () => {
       try {
-        const res = await fetch(`/api/bunny/status?videoId=${processingStory.bunnyVideoId}`);
+        const res = await fetch('/api/bunny/status?videoId=' + processingStory.bunnyVideoId);
         if (!res.ok) return;
         const data = (await res.json()) as { status?: number; encodeProgress?: number };
         if (typeof data.encodeProgress === "number") {
@@ -464,7 +466,7 @@ export default function UploadPage() {
           clearInterval(poll);
           showToast(
             "Your video is now live! 🎉",
-            `"${processingStory.title}" is ready to watch.`
+            '"' + processingStory.title + '" is ready to watch.'
           );
         }
       } catch {
@@ -555,8 +557,8 @@ export default function UploadPage() {
                 </h2>
                 <p className="max-w-sm text-sm text-muted-foreground">
                   {processingDone
-                    ? `"${processingStory.title}" is encoded and ready to watch. Enjoy the watch!`
-                    : `"${processingStory.title}" is being encoded on our streaming servers. This can take a few minutes.`}
+                    ? '"' + processingStory.title + '" is encoded and ready to watch. Enjoy the watch!'
+                    : '"' + processingStory.title + '" is being encoded on our streaming servers. This can take a few minutes.'}
                 </p>
                 {!processingDone && (
                   <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.06]">
@@ -565,14 +567,14 @@ export default function UploadPage() {
                         "h-full rounded-full bg-gold transition-all duration-700",
                         processingPercent > 0 ? "" : "animate-pulse w-1/3"
                       )}
-                      style={{ width: processingPercent > 0 ? `${processingPercent}%` : undefined }}
+                      style={{ width: processingPercent > 0 ? processingPercent + '%' : undefined }}
                     />
                   </div>
                 )}
                 {processingDone ? (
                   <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
                     <Link
-                      href={`/watch/${processingStory.videoId}`}
+                      href={'/watch/' + processingStory.videoId}
                       className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-2.5 text-sm font-bold text-black transition-all hover:bg-gold-dim"
                     >
                       <PlayCircle className="h-4 w-4" />
@@ -766,7 +768,7 @@ export default function UploadPage() {
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-gold to-burnt-orange transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
+                  style={{ width: uploadProgress + '%' }}
                 />
               </div>
             </div>
@@ -1249,7 +1251,7 @@ export default function UploadPage() {
               <SummaryRow label="Title" value={form.title || "—"} />
               <SummaryRow
                 label="Type"
-                value={form.contentMode === "series" ? `Series · S${form.seasonNumber} E${form.episodeNumber}` : "Single Video"}
+                value={form.contentMode === "series" ? 'Series · S' + form.seasonNumber + ' E' + form.episodeNumber : "Single Video"}
               />
               {form.contentMode === "series" && (
                 <SummaryRow label="Series" value={form.seriesTitle || "—"} />
@@ -1268,7 +1270,7 @@ export default function UploadPage() {
                 label="Monetization"
                 value={
                   form.monetizationType === "premium"
-                    ? `Premium · ${form.unlockPrice} points`
+                    ? 'Premium · ' + form.unlockPrice + ' points'
                     : "Free"
                 }
               />

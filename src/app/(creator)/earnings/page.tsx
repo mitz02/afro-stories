@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import {
@@ -36,8 +38,8 @@ interface EarningsData {
 }
 
 function formatNumber(n: number): string {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
   return String(n);
 }
 
@@ -78,7 +80,7 @@ export default function EarningsPage() {
     if (amount > data.summary.available) {
       showToast(
         "Insufficient balance",
-        `Your available balance is ${formatNaira(data.summary.available)}.`
+        "Your available balance is " + formatNaira(data.summary.available) + "."
       );
       return;
     }
@@ -113,7 +115,7 @@ export default function EarningsPage() {
       }
       showToast(
         "Withdrawal requested",
-        `${formatNaira(amount)} will be sent to ${bankName} within 1-3 business days.`
+        formatNaira(amount) + ' will be sent to ' + bankName + ' within 1-3 business days.'
       );
       await refresh();
     } catch {

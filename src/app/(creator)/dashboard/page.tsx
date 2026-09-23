@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import * as React from "react";
 import Link from "next/link";
@@ -180,7 +182,7 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {videos.length === 0
               ? "Upload your first story to get started."
-              : `${publishedCount} of your ${videos.length} videos are live.`}
+              : publishedCount + " of your " + videos.length + " videos are live."}
           </p>
         </div>
         <Link
@@ -249,7 +251,7 @@ export default function DashboardPage() {
               {topList.map((video, idx) => (
                 <Link
                   key={video.id}
-                  href={`/watch/${video.id}`}
+href={'/watch/' + video.id}
                   className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-white/[0.04]"
                 >
                   <div className="pointer-events-none relative aspect-video w-20 shrink-0 overflow-hidden rounded-lg">
@@ -300,7 +302,7 @@ export default function DashboardPage() {
               {series.slice(0, 3).map((s) => (
                 <Link
                   key={s.id}
-                  href={`/series/${s.id}`}
+                  href={'/series/' + s.id}
                   className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-white/[0.04]"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gold/10">
@@ -378,7 +380,7 @@ export default function DashboardPage() {
             latest.map((video, idx) => (
               <Link
                 key={video.id}
-                href={`/watch/${video.id}`}
+                href={'/watch/' + video.id}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]",
                   idx !== 0 && "border-t border-white/[0.04]"

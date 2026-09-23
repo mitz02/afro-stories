@@ -1,4 +1,6 @@
-"use client";`nexport const dynamic = "force-dynamic";
+"use client";
+
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { Search, UserCheck, Inbox, X, Loader2 } from "lucide-react";
@@ -78,15 +80,15 @@ export default function FollowersPage() {
   const displayRows: { key: string; f: Follower | null; fol: Following | null }[] = [];
   if (tab === "Followers") {
     displayRows.push(
-      ...followers.map((f) => ({ key: `f_${f.id}`, f, fol: null }))
+      ...followers.map((f) => ({ key: 'f_' + f.id, f, fol: null }))
     );
   } else if (tab === "Following") {
     displayRows.push(
-      ...following.map((fo) => ({ key: `fo_${fo.id}`, f: null, fol: fo }))
+      ...following.map((fo) => ({ key: 'fo_' + fo.id, f: null, fol: fo }))
     );
   } else {
     displayRows.push(
-      ...newThisWeek.map((f) => ({ key: `nw_${f.id}`, f, fol: null }))
+      ...newThisWeek.map((f) => ({ key: 'nw_' + f.id, f, fol: null }))
     );
   }
 
@@ -187,7 +189,7 @@ export default function FollowersPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-cream">{fo.name}</p>
                     <p className="truncate text-[11px] text-muted-foreground">
-                      {fo.type === "creator" ? `@${fo.handle}` : "Series"} · following since {timeAgo(fo.since)}
+                      {fo.type === "creator" ? '@' + fo.handle : "Series"} · following since {timeAgo(fo.since)}
                     </p>
                   </div>
                   <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-xs font-bold text-muted-foreground">
