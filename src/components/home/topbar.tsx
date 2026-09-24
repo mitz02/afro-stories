@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Menu, X, ArrowRight, Film, Layers, UserRound } from "lucide-react";
-import { AfriMask } from "@/components/home/sidebar";
 import { useWalletStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { formatNumber } from "@/lib/utils";
@@ -82,7 +81,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#070a18]/90 backdrop-blur-xl">
       <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
-        {/* Left: Mobile menu + Logo */}
+        {/* Left: Mobile menu only */}
         <div className="flex items-center gap-2 lg:hidden min-w-0">
           <button
             onClick={onMenu}
@@ -91,10 +90,6 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Link href="/home" className="flex items-center gap-2 shrink-0">
-            <AfriMask className="h-7 w-7" />
-            <span className="font-bold text-white text-sm hidden sm:inline">AfriTales</span>
-          </Link>
         </div>
 
         {/* Center: Search Bar - hidden on mobile, shown on sm+ */}
