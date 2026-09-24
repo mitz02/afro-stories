@@ -35,8 +35,8 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             </button>
           </div>
 
-          {/* Center: Search Icon (all screen sizes) - opens SearchModal */}
-          <div className="flex-1 flex justify-center sm:hidden">
+          {/* Center: Search Icon - ALL screen sizes, opens SearchModal */}
+          <div className="flex-1 flex justify-center">
             <button
               onClick={() => setSearchOpen(true)}
               className="flex w-full max-w-[200px] h-9 items-center justify-center gap-2 rounded-full border border-white/10 bg-[#0e1329]/80 pl-4 pr-3 text-xs text-white placeholder-zinc-400"
