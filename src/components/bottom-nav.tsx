@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Plus, Users, User } from "lucide-react";
+import { Home, Compass, Plus, Coins, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 
 const items = [
   { href: "/home", label: "Home", icon: Home },
@@ -14,12 +15,17 @@ const items = [
     icon: Plus,
     prominent: true,
   },
-  { href: "/following", label: "Following", icon: Users },
-  { href: "/profile", label: "Profile", icon: User },
+];
+
+const creatorItems = [
+  { href: "/earnings", label: "Earnings", icon: Coins },
+  { href: "/settings", label: "Profile", icon: User },
 ];
 
 export function BottomNavigation() {
   const pathname = usePathname();
+  const { user } = useSessionProfile();
+  const isCreator = user?.role === "creator";
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
@@ -44,6 +50,26 @@ export function BottomNavigation() {
             );
           }
 
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 py-2",
+                active ? "text-gold" : "text-muted-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 1.8} />
+              <span className={cn("text-[10px]", active ? "font-semibold" : "font-medium")}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+
+        {isCreator && creatorItems.map((item) => {
+          const active = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link
