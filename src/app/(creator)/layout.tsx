@@ -312,48 +312,57 @@ export default function CreatorLayout({
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col md:ml-64">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/[0.06] bg-charcoal/90 px-4 backdrop-blur-xl sm:px-6">
+        {/* Top bar - responsive */}
+        <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b border-white/[0.06] bg-charcoal/90 px-3 sm:px-4 md:px-6 backdrop-blur-xl">
           <button
             onClick={() => setMobileOpen(true)}
-            className="text-muted-foreground hover:text-foreground md:hidden"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground md:hidden"
+            aria-label="Open navigation menu"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-bold text-cream">
+
+          {/* Title - truncated on small screens */}
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-lg font-bold text-cream truncate sm:text-xl">
               Creator Studio
-            </span>
+            </h1>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <div className="hidden rounded-xl border border-gold/25 bg-gold/[0.06] px-4 py-2 text-xs sm:block">
-              <span className="text-muted-foreground">Videos:</span>{" "}
-              <span className="font-bold text-gold">
-                {identity ? identity.total_videos : "—"}
-              </span>
-              <span className="text-muted-foreground"> · Followers:</span>{" "}
-              <span className="font-bold text-gold">
-                {identity ? identity.followers_count.toLocaleString() : "—"}
-              </span>
+
+          {/* Right side - responsive */}
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* Stats pill - hidden on mobile, icon only on sm, full on lg */}
+            <div className="hidden sm:flex lg:hidden items-center gap-1.5 rounded-xl border border-gold/25 bg-gold/[0.06] px-2.5 py-1.5 text-xs">
+              <span className="font-bold text-gold">{identity ? identity.total_videos : "—"}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="font-bold text-gold">{identity ? identity.followers_count.toLocaleString() : "—"}</span>
             </div>
+
+            <div className="hidden xl:flex items-center gap-1.5 rounded-xl border border-gold/25 bg-gold/[0.06] px-3 py-1.5 text-xs">
+              <span className="text-muted-foreground">Videos:</span>{" "}
+              <span className="font-bold text-gold">{identity ? identity.total_videos : "—"}</span>
+              <span className="text-muted-foreground">· Followers:</span>{" "}
+              <span className="font-bold text-gold">{identity ? identity.followers_count.toLocaleString() : "—"}</span>
+            </div>
+
+            {/* Avatar - responsive sizing */}
             <div
-              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[#0e1329] font-display text-sm font-bold text-white"
+              className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#0e1329] font-display font-bold text-white transition-colors hover:ring-2 hover:ring-gold/50"
               style={{
                 backgroundImage: user?.avatar
                   ? "none"
                   : `linear-gradient(135deg, ${gradient.split(" ")[0].replace("from-", "")}, ${gradient.split(" ")[1]?.replace("to-", "") ?? ""})`,
+                width: "36px",
+                height: "36px",
+                minWidth: "36px",
               }}
             >
               {identityLoading ? (
-                "…"
+                <span className="text-xs">…</span>
               ) : user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={displayName}
-                  className="h-full w-full object-cover"
-                />
+                <img src={user.avatar} alt={displayName} className="h-full w-full object-cover" />
               ) : (
-                userInitials
+                <span className="text-sm sm:text-base">{userInitials}</span>
               )}
             </div>
           </div>
