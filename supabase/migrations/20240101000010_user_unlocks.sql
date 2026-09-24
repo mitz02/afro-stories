@@ -183,6 +183,9 @@ DECLARE
   v_video videos%ROWTYPE;
   v_episode episodes%ROWTYPE;
   v_series series%ROWTYPE;
+  v_ep_id UUID;
+  v_ep_series_id UUID;
+  v_series_completed BOOLEAN;
 BEGIN
   -- Get video info
   SELECT * INTO v_video FROM videos WHERE id = p_video_id;
@@ -206,25 +209,25 @@ BEGIN
   -- Check episode unlock
   IF v_video.episode_id IS NOT NULL THEN
     SELECT e.id, e.series_id, s.completed
-    INTO v_episode, v_series
+    INTO v_ep_id, v_ep_series_id, v_series_completed
     FROM episodes e
     LEFT JOIN series s ON s.id = e.series_id
     WHERE e.id = v_video.episode_id;
 
     IF FOUND THEN
       -- Check episode unlock
-      IF EXISTS (SELECT 1 FROM user_unlocks WHERE user_id = p_user_id AND episode_id = v_episode.id) THEN
-        RETURN QUERY SELECT TRUE, 'episode', v_episode.id, v_episode.series_id;
+      IF EXISTS (SELECT 1 FROM user_unlocks WHERE user_id = p_user_id AND episode_id = v_ep_id) THEN
+        RETURN QUERY SELECT TRUE, 'episode', v_ep_id, v_ep_series_id;
         RETURN;
       END IF;
 
       -- Check series unlock (if series is completed)
-      IF v_series.completed AND EXISTS (SELECT 1 FROM user_unlocks WHERE user_id = p_user_id AND series_id = v_episode.series_id) THEN
-        RETURN QUERY SELECT TRUE, 'series', v_episode.id, v_episode.series_id;
+      IF v_series_completed AND EXISTS (SELECT 1 FROM user_unlocks WHERE user_id = p_user_id AND series_id = v_ep_series_id) THEN
+        RETURN QUERY SELECT TRUE, 'series', v_ep_id, v_ep_series_id;
         RETURN;
       END IF;
 
-      RETURN QUERY SELECT FALSE, 'locked', v_episode.id, v_episode.series_id;
+      RETURN QUERY SELECT FALSE, 'locked', v_ep_id, v_ep_series_id;
       RETURN;
     END IF;
   END IF;
