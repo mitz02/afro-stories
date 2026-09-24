@@ -34,8 +34,9 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             </button>
           </div>
 
-          {/* Center: Search Icon - navigates to explore page */}
-          <div className="flex-1 flex justify-center">
+          {/* Right Section - Search, Notification, Wallet */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Search Icon - navigates to explore page */}
             <Link
               href="/explore"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -43,10 +44,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             >
               <Search className="h-5 w-5" />
             </Link>
-          </div>
 
-          {/* Right Section - Notification, Wallet */}
-          <div className="flex shrink-0 items-center gap-1.5">
             {/* Notification Bell */}
             <NotificationPanel
               open={notificationsOpen}
