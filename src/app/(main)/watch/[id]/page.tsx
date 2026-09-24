@@ -16,6 +16,7 @@ import {
   Lock,
   PlayCircle,
   Loader2,
+  Coins,
 } from "lucide-react";
 import { VideoPlayer } from "@/components/video-player";
 import { EpisodeLockOverlay } from "@/components/episode-lock-overlay";
@@ -38,7 +39,8 @@ import {
 } from "@/lib/data/series";
 import { getCreator, currentUser } from "@/lib/data/creators";
 import { getCountry } from "@/lib/data/countries";
-import { useUnlocksStore, useSocialStore, useToastStore } from "@/lib/store";
+import { useUnlocksStore, useSocialStore, useToastStore, useWalletStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { cn, formatDuration, formatNumber, formatPoints, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { mapDbVideo, type DbVideoRow } from "@/lib/supabase/videos";
@@ -90,6 +92,10 @@ export default function WatchPage() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbCreatorName, setDbCreatorName] = useState<string | null>(null);
   const showToast = useToastStore((s) => s.showToast);
+  
+  const { balance, deductPoints, setBalance } = useWalletStore();
+  const { user, balance: userBalance, refresh } = useSessionProfile();
+  const effectiveBalance = user ? userBalance : balance;
 
   // Real DB videos (creator uploads via Bunny) aren't in the mock catalog —
   // fall back to Supabase and render the HLS stream. While a video is
@@ -362,6 +368,62 @@ export default function WatchPage() {
     showToast("Report submitted", "Our moderation team will review it. Thank you.");
   };
 
+  const handleSupport = async () => {
+    if (!creator) return;
+    
+    // Use the balance from the component scope (from useWalletStore and useSessionProfile hooks)
+    const supportAmount = 50; // Default support amount
+    
+    if (effectiveBalance < supportAmount) {
+      showToast("Insufficient points", "Please top up your wallet to support this creator.");
+      return;
+    }
+
+    // Deduct locally first for instant feedback
+    const ok = deductPoints(supportAmount, `Supported ${creator.displayName}`);
+    if (!ok) {
+      showToast("Insufficient points", "Please top up your wallet.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/wallet/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId: creator.id,
+          videoId: video.id,
+          amount: supportAmount,
+        }),
+      });
+
+      if (!res.ok) {
+        // Restore balance by re-fetching from server
+        const supportSupabase = createClient();
+        const { data: updatedWallet } = await supportSupabase.rpc("get_user_wallet_balance", {
+          p_user_id: user?.id ?? "",
+        });
+        const newBalance = updatedWallet?.[0]?.balance ?? effectiveBalance - supportAmount;
+        setBalance(newBalance);
+        showToast("Support failed", "Something went wrong. Please try again.");
+        return;
+      }
+
+      const data = await res.json();
+      showToast("Thanks for supporting! 💛", `${supportAmount} points sent to ${creator.displayName}`);
+      setBalance(data.balance);
+      if (user) await refresh();
+    } catch {
+      const supportSupabase = createClient();
+      const { data: updatedWallet } = await supportSupabase.rpc("get_user_wallet_balance", {
+        p_user_id: user?.id ?? "",
+      });
+      const newBalance = updatedWallet?.[0]?.balance ?? effectiveBalance - supportAmount;
+      setBalance(newBalance);
+      showToast("Support failed", "Something went wrong. Please try again.");
+    }
+  };
+
   const related = videos.filter((v) => v.id !== video.id).slice(0, 8);
 
   return (
@@ -436,6 +498,7 @@ export default function WatchPage() {
                             .getElementById("watch-comments")
                             ?.scrollIntoView({ behavior: "smooth" });
                         },
+                        onSupport: () => void handleSupport(),
                       }
                     : null
                 }
@@ -605,9 +668,33 @@ export default function WatchPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: episodes rail */}
+        {/* RIGHT COLUMN: episodes rail + support */}
         {series && seriesEpisodes.length > 0 && (
           <aside className="w-full min-w-0 space-y-4 self-start lg:sticky lg:top-24 lg:col-start-2">
+            {/* SUPPORT CREATOR */}
+            {creator && (
+              <div className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/[0.08] via-transparent to-transparent p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/15 text-gold">
+                      <Coins className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-display text-sm font-bold text-cream">Support Creator</p>
+                      <p className="text-xs text-muted-foreground">Send points to {creator.displayName}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSupport}
+                    className="flex shrink-0 items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-bold text-black transition-all hover:bg-gold-dim"
+                  >
+                    <Coins className="h-4 w-4" />
+                    Support
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* UP NEXT */}
             {nextEpisode && (
               <div className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/[0.08] via-gold/[0.03] to-transparent p-3.5">

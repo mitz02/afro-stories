@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   Heart,
   MessageCircle,
-  Share2,
-  Bookmark,
   Music2,
   Plus,
   Check,
@@ -17,7 +14,6 @@ interface TiktokOverlayProps {
   videoId: string;
   liked: boolean;
   likeCount: number;
-  saved: boolean;
   following: boolean;
   creatorName: string;
   creatorAvatar: string;
@@ -25,17 +21,15 @@ interface TiktokOverlayProps {
   caption: string;
   hashtags: string[];
   onLike: () => void;
-  onSave: () => void;
-  onShare: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
+  onSupport: () => void;
 }
 
 export function TiktokOverlay({
   videoId,
   liked,
   likeCount,
-  saved,
   following,
   creatorName,
   creatorAvatar,
@@ -43,32 +37,10 @@ export function TiktokOverlay({
   caption,
   hashtags,
   onLike,
-  onSave,
-  onShare,
   onFollow,
   onOpenComments,
+  onSupport,
 }: TiktokOverlayProps) {
-  const [commentCount, setCommentCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/social/comments?videoId=${videoId}`);
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { comments: unknown[] };
-        if (!cancelled && Array.isArray(data.comments)) {
-          setCommentCount(data.comments.length);
-        }
-      } catch {
-        // keep count hidden
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [videoId]);
-
   const railBtn =
     "flex flex-col items-center gap-1.5 text-white transition-colors";
 
@@ -111,7 +83,7 @@ export function TiktokOverlay({
         )}
       </div>
 
-      {/* Action rail (right) */}
+      {/* Action rail (right) - Follow, Support, Episodes, Likes */}
       <div className="pointer-events-auto absolute bottom-44 right-2.5 z-10 flex flex-col items-center gap-4 sm:bottom-48 sm:right-4">
         {/* Follow */}
         <div className="flex flex-col items-center gap-0.5">
@@ -143,7 +115,23 @@ export function TiktokOverlay({
           </span>
         </div>
 
-        {/* Like */}
+        {/* Support */}
+        <button onClick={onSupport} className={railBtn}>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
+            <Heart className="h-5.5 w-5.5 text-gold" />
+          </span>
+          <span className="text-[11px] font-semibold drop-shadow text-gold">Support</span>
+        </button>
+
+        {/* Episodes */}
+        <button onClick={onOpenComments} className={railBtn}>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
+            <MessageCircle className="h-5.5 w-5.5" />
+          </span>
+          <span className="text-[11px] font-semibold drop-shadow">Episodes</span>
+        </button>
+
+        {/* Likes */}
         <button onClick={onLike} className={railBtn}>
           <span
             className={cn(
@@ -161,39 +149,6 @@ export function TiktokOverlay({
           <span className="text-[11px] font-semibold tabular-nums drop-shadow">
             {formatNumber(liked ? likeCount : Math.max(0, likeCount - 1))}
           </span>
-        </button>
-
-        {/* Comments */}
-        <button onClick={onOpenComments} className={railBtn}>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
-            <MessageCircle className="h-5.5 w-5.5" />
-          </span>
-          <span className="text-[11px] font-semibold tabular-nums drop-shadow">
-            {commentCount == null ? "..." : formatNumber(commentCount)}
-          </span>
-        </button>
-
-        {/* Save */}
-        <button onClick={onSave} className={railBtn}>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
-            <Bookmark
-              className={cn(
-                "h-5.5 w-5.5",
-                saved && "fill-amber-300 text-amber-300"
-              )}
-            />
-          </span>
-          <span className="text-[11px] font-semibold drop-shadow">
-            {saved ? "Saved" : "Save"}
-          </span>
-        </button>
-
-        {/* Share */}
-        <button onClick={onShare} className={railBtn}>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
-            <Share2 className="h-5.5 w-5.5" />
-          </span>
-          <span className="text-[11px] font-semibold drop-shadow">Share</span>
         </button>
       </div>
     </div>

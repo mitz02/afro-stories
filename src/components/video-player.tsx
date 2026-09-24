@@ -41,6 +41,7 @@ export interface TiktokOverlayData {
   onShare: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
+  onSupport: () => void;
 }
 
 interface VideoPlayerProps {
