@@ -514,6 +514,9 @@ export default function WatchPage() {
                             ? `${video.description.slice(0, 220)}…`
                             : video.description,
                         hashtags: video.tags.slice(0, 4),
+                        series: series ?? undefined,
+                        currentEpisodeId: episode?.id ?? undefined,
+                        currentSeasonNumber: episode?.seasonNumber ?? undefined,
                         onLike: () => void handleLike(),
                         onFollow: () => void handleFollow(),
                         onOpenComments: () => {
@@ -522,12 +525,10 @@ export default function WatchPage() {
                             ?.scrollIntoView({ behavior: "smooth" });
                         },
                         onOpenEpisodes: () => {
-                          // Open episodes panel in the sidebar
-                          const episodesPanel = document.querySelector('[data-episodes-panel]');
-                          if (episodesPanel) {
-                            episodesPanel.scrollIntoView({ behavior: "smooth" });
-                          }
+                          // Open episodes modal via the overlay
+                          // This will be handled by the TiktokOverlay component
                         },
+                        onSelectEpisode: handleSelectEpisode,
                         onSupport: () => void handleSupport(),
                       }
                     : null

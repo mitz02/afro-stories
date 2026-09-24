@@ -37,10 +37,14 @@ export interface TiktokOverlayData {
   creatorVerified: boolean;
   caption: string;
   hashtags: string[];
+  series: Series | null | undefined;
+  currentEpisodeId: string | undefined;
+  currentSeasonNumber: number | undefined;
   onLike: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
-  onOpenEpisodes: () => void;
+  onOpenEpisodes: (series: any, currentEpisodeId: string | undefined, currentSeasonNumber: number | undefined) => void;
+  onSelectEpisode: (episodeId: string, videoId: string) => void;
   onSupport: () => void;
 }
 
@@ -54,7 +58,7 @@ interface VideoPlayerProps {
   episode?: Episode;
   series?: Series;
   overlay?: TiktokOverlayData | null;
-  onSelectEpisode?: (episodeId: string, videoId: string) => void;
+  onSelectEpisode: (episodeId: string, videoId: string) => void;
   onFirstPlay?: ((videoId: string) => void) | undefined;
 }
 
@@ -352,7 +356,28 @@ export function VideoPlayer({
       )}
 
       {/* TikTok-style engagement overlay (fullscreen only) */}
-      {overlay && fullscreen && <TiktokOverlay {...overlay} />}
+      {overlay && fullscreen && (
+        <TiktokOverlay
+          videoId={overlay.videoId}
+          creatorId={overlay.creatorId}
+          liked={overlay.liked}
+          likeCount={overlay.likeCount}
+          following={overlay.following}
+          creatorName={overlay.creatorName}
+          creatorAvatar={overlay.creatorAvatar}
+          creatorVerified={overlay.creatorVerified}
+          caption={overlay.caption}
+          hashtags={overlay.hashtags}
+          series={series}
+          currentEpisodeId={episode?.id ?? undefined}
+          currentSeasonNumber={episode?.seasonNumber ?? undefined}
+          onLike={overlay.onLike}
+          onFollow={overlay.onFollow}
+          onOpenComments={overlay.onOpenComments}
+          onOpenEpisodes={overlay.onOpenEpisodes}
+          onSelectEpisode={onSelectEpisode}
+        />
+      )}
 
       {/* Heart bursts from double-tap (fullscreen) */}
       {fullscreen &&
