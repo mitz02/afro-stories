@@ -1,17 +1,15 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, Menu, Bell, Wallet } from "lucide-react";
+import { Search, Bell, Wallet } from "lucide-react";
 import { useWalletStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { formatNumber } from "@/lib/utils";
 import { useUiStore } from "@/lib/store";
 import { NotificationPanel } from "@/components/notification-panel";
+import { HamburgerMenu } from "@/components/ui/hamburger-menu";
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
-  const router = useRouter();
   const walletBalance = useWalletStore((s) => s.balance);
   const { user, balance: realBalance } = useSessionProfile();
   const { notificationsOpen, setNotificationsOpen } = useUiStore();
@@ -30,7 +28,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
               aria-label="Open navigation menu"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white"
             >
-              <Menu className="h-5 w-5" />
+              <HamburgerMenu size={20} strokeWidth={2.5} />
             </button>
           </div>
 

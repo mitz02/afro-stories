@@ -25,6 +25,7 @@ import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
 import { stickerAvatar } from "@/lib/stickers";
 import { Loader2 } from "lucide-react";
+import { HamburgerMenu } from "@/components/ui/hamburger-menu";
 
 interface SessionProfile {
   id: string;
@@ -319,7 +320,7 @@ export default function CreatorLayout({
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground md:hidden"
             aria-label="Open navigation menu"
           >
-            <Menu className="h-5 w-5" />
+            <HamburgerMenu size={20} strokeWidth={2.5} />
           </button>
 
           {/* Title - truncated on small screens */}

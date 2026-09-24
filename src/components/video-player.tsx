@@ -27,6 +27,7 @@ import type { Episode, Series } from "@/types";
 
 export interface TiktokOverlayData {
   videoId: string;
+  creatorId: string;
   liked: boolean;
   likeCount: number;
   saved: boolean;
@@ -37,10 +38,9 @@ export interface TiktokOverlayData {
   caption: string;
   hashtags: string[];
   onLike: () => void;
-  onSave: () => void;
-  onShare: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
+  onOpenEpisodes: () => void;
   onSupport: () => void;
 }
 

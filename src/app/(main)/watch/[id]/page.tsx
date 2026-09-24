@@ -477,6 +477,7 @@ export default function WatchPage() {
                   creator
                     ? {
                         videoId: video.id,
+                        creatorId: creator.id,
                         liked,
                         likeCount: effectiveLikes,
                         saved,
@@ -490,13 +491,18 @@ export default function WatchPage() {
                             : video.description,
                         hashtags: video.tags.slice(0, 4),
                         onLike: () => void handleLike(),
-                        onSave: handleSave,
-                        onShare: () => void handleShare(),
                         onFollow: () => void handleFollow(),
                         onOpenComments: () => {
                           document
                             .getElementById("watch-comments")
                             ?.scrollIntoView({ behavior: "smooth" });
+                        },
+                        onOpenEpisodes: () => {
+                          // Open episodes panel in the sidebar
+                          const episodesPanel = document.querySelector('[data-episodes-panel]');
+                          if (episodesPanel) {
+                            episodesPanel.scrollIntoView({ behavior: "smooth" });
+                          }
                         },
                         onSupport: () => void handleSupport(),
                       }
@@ -734,7 +740,7 @@ export default function WatchPage() {
             )}
 
             {/* EPISODES PANEL */}
-            <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+            <div data-episodes-panel className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] p-4 pb-3">
                 <h3 className="font-display text-base font-bold tracking-tight text-cream">
                   Episodes

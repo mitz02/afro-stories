@@ -2,16 +2,22 @@
 
 import {
   Heart,
-  MessageCircle,
   Music2,
   Plus,
   Check,
+  Heart as HeartIcon,
+  MessageCircle,
+  List,
 } from "lucide-react";
 import { VerifiedBadge } from "@/components/ui/badges";
 import { formatNumber, cn } from "@/lib/utils";
+import { useWalletStore } from "@/lib/store";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
+import { useToastStore } from "@/lib/store";
 
 interface TiktokOverlayProps {
   videoId: string;
+  creatorId: string;
   liked: boolean;
   likeCount: number;
   following: boolean;
@@ -23,11 +29,12 @@ interface TiktokOverlayProps {
   onLike: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
-  onSupport: () => void;
+  onOpenEpisodes: () => void;
 }
 
 export function TiktokOverlay({
   videoId,
+  creatorId,
   liked,
   likeCount,
   following,
@@ -39,8 +46,72 @@ export function TiktokOverlay({
   onLike,
   onFollow,
   onOpenComments,
-  onSupport,
+  onOpenEpisodes,
 }: TiktokOverlayProps) {
+  const { balance, deductPoints, setBalance } = useWalletStore();
+  const { user, balance: userBalance, refresh } = useSessionProfile();
+  const showToast = useToastStore((s) => s.showToast);
+
+  const signedIn = !!user;
+  const effectiveBalance = user ? userBalance : balance;
+
+  const handleSupport = async () => {
+    if (!signedIn) {
+      showToast("Sign in required", "Please sign in to support creators.");
+      return;
+    }
+
+    const supportAmount = 50;
+
+    if (effectiveBalance < supportAmount) {
+      showToast("Insufficient points", "Please top up your wallet to support this creator.");
+      return;
+    }
+
+    // Deduct locally first
+    const ok = deductPoints(supportAmount, `Supported ${creatorName}`);
+    if (!ok) {
+      showToast("Insufficient points", "Please top up your wallet.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/wallet/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId,
+          videoId,
+          amount: supportAmount,
+        }),
+      });
+
+      if (!res.ok) {
+        const supportSupabase = (await import("@/lib/supabase/client")).createClient();
+        const { data: updatedWallet } = await supportSupabase.rpc("get_user_wallet_balance", {
+          p_user_id: user?.id ?? "",
+        });
+        const newBalance = updatedWallet?.[0]?.balance ?? effectiveBalance - supportAmount;
+        setBalance(newBalance);
+        showToast("Support failed", "Something went wrong. Please try again.");
+        return;
+      }
+
+      const data = await res.json();
+      showToast("Thanks for supporting! 💛", `${supportAmount} points sent to ${creatorName}`);
+      setBalance(data.balance);
+      if (user) await refresh();
+    } catch {
+      const supportSupabase = (await import("@/lib/supabase/client")).createClient();
+      const { data: updatedWallet } = await supportSupabase.rpc("get_user_wallet_balance", {
+        p_user_id: user?.id ?? "",
+      });
+      const newBalance = updatedWallet?.[0]?.balance ?? effectiveBalance - supportAmount;
+      setBalance(newBalance);
+      showToast("Support failed", "Something went wrong. Please try again.");
+    }
+  };
+
   const railBtn =
     "flex flex-col items-center gap-1.5 text-white transition-colors";
 
@@ -83,50 +154,20 @@ export function TiktokOverlay({
         )}
       </div>
 
-      {/* Action rail (right) - Follow, Support, Episodes, Likes */}
+      {/* Action rail (right) - Support, Episodes, Likes */}
       <div className="pointer-events-auto absolute bottom-44 right-2.5 z-10 flex flex-col items-center gap-4 sm:bottom-48 sm:right-4">
-        {/* Follow */}
-        <div className="flex flex-col items-center gap-0.5">
-          <button
-            onClick={onFollow}
-            className={cn(
-              "relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br text-sm font-black text-white ring-2 transition-transform hover:scale-105",
-              creatorAvatar
-            )}
-          >
-            {creatorName[0]?.toUpperCase()}
-            <span
-              className={cn(
-                "absolute -bottom-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-black",
-                following
-                  ? "bg-white text-black"
-                  : "bg-crimson text-white"
-              )}
-            >
-              {following ? (
-                <Check className="h-3 w-3" strokeWidth={3} />
-              ) : (
-                <Plus className="h-3 w-3" strokeWidth={3} />
-              )}
-            </span>
-          </button>
-          <span className="mt-1 text-[9px] font-bold text-white">
-            {following ? "Following" : "Follow"}
-          </span>
-        </div>
-
         {/* Support */}
-        <button onClick={onSupport} className={railBtn}>
+        <button onClick={handleSupport} className={railBtn}>
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
-            <Heart className="h-5.5 w-5.5 text-gold" />
+            <HeartIcon className="h-5.5 w-5.5 text-gold" />
           </span>
           <span className="text-[11px] font-semibold drop-shadow text-gold">Support</span>
         </button>
 
         {/* Episodes */}
-        <button onClick={onOpenComments} className={railBtn}>
+        <button onClick={onOpenEpisodes} className={railBtn}>
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110">
-            <MessageCircle className="h-5.5 w-5.5" />
+            <List className="h-5.5 w-5.5" />
           </span>
           <span className="text-[11px] font-semibold drop-shadow">Episodes</span>
         </button>
