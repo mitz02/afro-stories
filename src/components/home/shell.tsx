@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar, MobileSidebar } from "@/components/home/sidebar";
 import { TopBar } from "@/components/home/topbar";
 import { HomeFooter } from "@/components/home/footer";
+import { BottomNavigation } from "@/components/bottom-nav";
 import { Toaster } from "@/components/toaster";
 
 export function HomeShell({ children }: { children: React.ReactNode }) {
@@ -22,11 +23,12 @@ export function HomeShell({ children }: { children: React.ReactNode }) {
         <MobileSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
         <div className="flex min-h-screen flex-col">
           <TopBar onMenu={() => setMenuOpen(true)} />
-          <main className="flex-1 pb-16">{children}</main>
+          <main className="flex-1 pb-20 md:pb-16">{children}</main>
           <HomeFooter />
         </div>
       </div>
 
+      <BottomNavigation />
       <Toaster />
     </div>
   );

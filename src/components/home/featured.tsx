@@ -142,7 +142,7 @@ export function HomeFeatured() {
       </div>
 
       {/* 5-column responsive grid matching reference design */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-3.5">
         {merged.map((story) => (
           <StoryCard key={story.id} story={story} />
         ))}

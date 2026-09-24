@@ -4,27 +4,35 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Compass, Plus, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSessionProfile } from "@/lib/supabase/use-auth";
 
 const items = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
   {
-    href: "/create",
+    href: "/upload",
     label: "Create",
     icon: Plus,
     prominent: true,
   },
   { href: "/following", label: "Following", icon: Users },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/settings", label: "Profile", icon: User },
 ];
 
 export function BottomNavigation() {
   const pathname = usePathname();
+  const { user } = useSessionProfile();
+  const isCreator = user?.role === "creator";
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
       <div className="grid grid-cols-5">
         {items.map((item) => {
+          // Hide creator-specific items for non-creators
+          if ((item.href === "/upload" || item.href === "/following") && !isCreator) {
+            return null;
+          }
+
           const active = item.href === "/home" ? pathname === "/home" : pathname.startsWith(item.href);
 
           if (item.prominent) {
