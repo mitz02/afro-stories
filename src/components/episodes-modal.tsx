@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Play, Lock, Clock } from "lucide-react";
@@ -31,10 +31,13 @@ export function EpisodesModal({
   const [episodes, setEpisodes] = useState<any[]>([]);
 
   // Fetch episodes when series or season changes
-  useEffect(() => {
+    if (!series) {
+      setEpisodes([]);
+      return;
+    }
     const eps = getEpisodesForSeries(series.id, selectedSeason);
     setEpisodes(eps);
-  }, [series.id, selectedSeason]);
+  }, [series?.id, selectedSeason]);
 
   const handleClose = () => {
     onOpenChange(false);
