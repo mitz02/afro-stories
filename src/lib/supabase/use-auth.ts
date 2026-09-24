@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { stickerAvatar } from "@/lib/stickers";
 
@@ -22,12 +22,20 @@ interface UseSessionProfile {
 }
 
 export function useSessionProfile(): UseSessionProfile {
-  const supabase = createClient();
   const [user, setUser] = useState<SessionProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+
+  const getSupabase = useCallback(() => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  }, []);
 
   const refresh = useCallback(async () => {
+    const supabase = getSupabase();
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -80,10 +88,11 @@ export function useSessionProfile(): UseSessionProfile {
     });
     setBalance(wallet?.[0]?.balance ?? 0);
     setLoading(false);
-  }, [supabase]);
+  }, [getSupabase]);
 
   useEffect(() => {
     void refresh();
+    const supabase = getSupabase();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -96,14 +105,15 @@ export function useSessionProfile(): UseSessionProfile {
       }
     });
     return () => subscription.unsubscribe();
-  }, [refresh, supabase]);
+  }, [refresh, getSupabase]);
 
   const signOut = useCallback(async () => {
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     setUser(null);
     setBalance(0);
     setLoading(false);
-  }, [supabase]);
+  }, [getSupabase]);
 
   return { user, loading, balance, signOut, refresh };
 }
