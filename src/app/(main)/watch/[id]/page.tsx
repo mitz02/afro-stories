@@ -183,7 +183,7 @@ export default function WatchPage() {
     setSeasonSelection({ videoId: video?.id ?? "", season: seasonNumber });
   };
 
-  const { isUnlocked } = useUnlocksStore();
+  const { isUnlocked, unlockEpisode: unlockEpisodeLocal } = useUnlocksStore();
   const { isSaved, toggleSave } = useSocialStore();
 
   const [liked, setLiked] = useState(false);
@@ -229,6 +229,30 @@ export default function WatchPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Check if user has access to this video (purchased or free) and initialize local unlocks store
+  useEffect(() => {
+    if (!video || !user) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/wallet/check-access?videoId=${video.id}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.hasAccess && data.unlockType !== 'free') {
+          // User has purchased access - initialize local unlocks store
+          const episodeId = data.episodeId || video.episodeId || video.id;
+          if (episodeId && !isUnlocked(episodeId)) {
+            unlockEpisodeLocal(episodeId);
+          }
+        }
+      } catch {
+        // leave defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [video, user, isUnlocked, unlockEpisodeLocal]);
 
   const trackView = (vid: string) => {
     if (!flags.viewsTracking) return;
