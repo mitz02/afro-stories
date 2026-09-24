@@ -5,7 +5,6 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Verify user is authenticated
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -19,24 +18,38 @@ export async function POST(req: NextRequest) {
 
     const userId = session.user.id;
 
-    // Parse request body
-    const body = (await req.json()) as {
+    const body = (await req.json().catch(() => ({}))) as {
       episodeId?: string;
       videoId?: string;
       price?: number;
       episodeTitle?: string;
+      seriesId?: string;
+      unlockType?: "episode" | "series";
     };
 
-    const { episodeId, videoId, price, episodeTitle } = body;
+    const { episodeId, videoId, price, episodeTitle, seriesId, unlockType = "episode" } = body;
 
-    if (!episodeId || !videoId || typeof price !== "number" || price <= 0) {
+    if (!videoId || typeof price !== "number" || price <= 0) {
       return NextResponse.json(
-        { error: "Missing required fields: episodeId, videoId, price." },
+        { error: "Missing required fields: videoId, price." },
         { status: 400 }
       );
     }
 
-    // Check current wallet balance
+    if (unlockType === "series" && !seriesId) {
+      return NextResponse.json(
+        { error: "seriesId required for series unlock." },
+        { status: 400 }
+      );
+    }
+
+    if (unlockType === "episode" && !episodeId) {
+      return NextResponse.json(
+        { error: "episodeId required for episode unlock." },
+        { status: 400 }
+      );
+    }
+
     const { data: walletRows } = await supabase.rpc("get_user_wallet_balance", {
       p_user_id: userId,
     });
@@ -54,17 +67,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Try to parse UUIDs — episode IDs from mock data may not be real UUIDs,
-    // so we use a best-effort approach: call the RPC if the IDs look like UUIDs,
-    // otherwise fall back to manually recording the point deduction.
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    const episodeIsUuid = uuidRegex.test(episodeId);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const videoIsUuid = uuidRegex.test(videoId);
+    const episodeIsUuid = episodeId ? uuidRegex.test(episodeId) : false;
+    const seriesIsUuid = seriesId ? uuidRegex.test(seriesId) : false;
 
-    if (episodeIsUuid && videoIsUuid) {
-      // Verify episode exists in DB before calling unlock_episode RPC
+    let unlockResult = false;
+    let unlockError: string | null = null;
+
+    if (unlockType === "series" && seriesIsUuid && videoIsUuid) {
+      // Series bulk unlock
+      const { data, error } = await supabase.rpc("unlock_series", {
+        p_user_id: userId,
+        p_series_id: seriesId,
+        p_price: price,
+      });
+
+      if (error) {
+        unlockError = error.message ?? "Failed to unlock series.";
+      } else {
+        unlockResult = data ?? false;
+      }
+    } else if (unlockType === "episode" && episodeIsUuid && videoIsUuid) {
+      // Episode unlock - verify episode exists in DB
       const { data: episode } = await supabase
         .from("episodes")
         .select("id")
@@ -72,67 +97,28 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (episode) {
-        // Use the dedicated DB function (deducts points + records earnings)
-        const { data: unlockResult, error: unlockError } = await supabase.rpc(
-          "unlock_episode",
-          {
-            p_user_id: userId,
-            p_episode_id: episodeId,
-            p_video_id: videoId,
-            p_price: price,
-          }
-        );
+        const { data, error } = await supabase.rpc("unlock_episode", {
+          p_user_id: userId,
+          p_episode_id: episodeId,
+          p_video_id: videoId,
+          p_price: price,
+        });
 
-        if (unlockError) {
-          return NextResponse.json(
-            { error: unlockError.message ?? "Failed to unlock episode." },
-            { status: 500 }
-          );
-        }
-
-        if (unlockResult === false) {
-          return NextResponse.json(
-            { error: "Insufficient points or episode already unlocked." },
-            { status: 402 }
-          );
+        if (error) {
+          unlockError = error.message ?? "Failed to unlock episode.";
+        } else {
+          unlockResult = data ?? false;
         }
       } else {
         // Episode doesn't exist in DB (standalone video or mock data): fall back to manual
-        const description = episodeTitle
-          ? `Unlocked "${episodeTitle}"`
-          : "Unlocked premium episode";
-
-        const { error: txError } = await supabase.from("point_transactions").insert({
-          user_id: userId,
-          type: "unlock",
-          amount: -price,
-          description,
-          status: "success",
-          completed_at: new Date().toISOString(),
-        });
-
-        if (txError) {
-          console.warn("Failed to record point_transaction:", txError.message);
-        }
-
-        const { error: deductError } = await supabase.rpc("deduct_points", {
-          p_user_id: userId,
-          p_amount: price,
-          p_description: description,
-          p_reference: `unlock_${episodeId}`,
-        });
-
-        if (deductError) {
-          return NextResponse.json(
-            { error: deductError.message ?? "Failed to deduct points." },
-            { status: 500 }
-          );
-        }
+        unlockError = "Episode not found in database.";
       }
     } else {
       // Mock / non-UUID IDs: just record a point_transaction manually
       const description = episodeTitle
         ? `Unlocked "${episodeTitle}"`
+        : unlockType === "series"
+        ? "Unlocked full series"
         : "Unlocked premium episode";
 
       const { error: txError } = await supabase.from("point_transactions").insert({
@@ -145,16 +131,14 @@ export async function POST(req: NextRequest) {
       });
 
       if (txError) {
-        // Not a hard failure — still let the client deduct locally
         console.warn("Failed to record point_transaction:", txError.message);
       }
 
-      // Deduct from wallet
       const { error: deductError } = await supabase.rpc("deduct_points", {
         p_user_id: userId,
         p_amount: price,
         p_description: description,
-        p_reference: `unlock_${episodeId}`,
+        p_reference: `unlock_${episodeId ?? seriesId ?? videoId}`,
       });
 
       if (deductError) {
@@ -163,6 +147,19 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+
+      unlockResult = true;
+    }
+
+    if (unlockError) {
+      return NextResponse.json({ error: unlockError }, { status: 500 });
+    }
+
+    if (!unlockResult) {
+      return NextResponse.json(
+        { error: "Insufficient points or content already unlocked." },
+        { status: 402 }
+      );
     }
 
     // Insert unlock notification for user
@@ -171,8 +168,10 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: userId,
         type: "unlock",
-        title: "Episode Unlocked 🎉",
-        message: `You unlocked "${episodeTitle ?? "Premium Episode"}" (${price} points deducted).`,
+        title: unlockType === "series" ? "Series Unlocked! 🎉" : "Episode Unlocked! 🎉",
+        message: unlockType === "series"
+          ? `You unlocked the full series (${price} points deducted).`
+          : `You unlocked "${episodeTitle ?? "Premium Episode"}" (${price} points deducted).`,
         link: `/watch/${videoId}`,
         read: false,
       })
@@ -181,14 +180,13 @@ export async function POST(req: NextRequest) {
         () => undefined
       );
 
-    // Return updated balance
     const { data: updatedWallet } = await supabase.rpc("get_user_wallet_balance", {
       p_user_id: userId,
     });
 
     const newBalance: number = updatedWallet?.[0]?.balance ?? Math.max(0, currentBalance - price);
 
-    return NextResponse.json({ success: true, balance: newBalance });
+    return NextResponse.json({ success: true, balance: newBalance, unlockType });
   } catch (err) {
     console.error("Unlock API error:", err);
     return NextResponse.json(

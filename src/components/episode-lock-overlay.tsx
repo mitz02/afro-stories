@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Coins, Lock, LogIn, Wallet } from "lucide-react";
+import { Coins, Lock, LogIn, Wallet, Sparkles, Calculator } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import { formatPoints } from "@/lib/utils";
@@ -9,18 +9,31 @@ import { useUnlocksStore, useWalletStore, useToastStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { PointPurchaseModal } from "@/components/point-purchase-modal";
 
+interface SeriesBulkPrice {
+  total_episodes: number;
+  unlocked_episodes: number;
+  remaining_episodes: number;
+  total_price: number;
+  bulk_price: number;
+  discount_percent: number;
+}
+
 export function EpisodeLockOverlay({
   episodeId,
   videoId,
   unlockPrice,
   episodeTitle,
   seriesTitle,
+  seriesId,
+  seriesCompleted,
 }: {
   episodeId: string;
   videoId: string;
   unlockPrice: number;
   episodeTitle: string;
   seriesTitle?: string;
+  seriesId?: string;
+  seriesCompleted?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,6 +43,8 @@ export function EpisodeLockOverlay({
   const showToast = useToastStore((s) => s.showToast);
   const [showPurchase, setShowPurchase] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [showSeriesOption, setShowSeriesOption] = useState(false);
+  const [seriesBulkPrice, setSeriesBulkPrice] = useState<SeriesBulkPrice | null>(null);
 
   const isGuest = !user;
   const effectiveBalance = user ? userBalance : balance;
@@ -40,6 +55,20 @@ export function EpisodeLockOverlay({
   useEffect(() => {
     if (user) setBalance(userBalance);
   }, [user, userBalance, setBalance]);
+
+  // Fetch series bulk price when series is completed and user is signed in
+  useEffect(() => {
+    if (!seriesCompleted || !seriesId || !user || seriesBulkPrice) return;
+    fetch(`/api/wallet/bulk-price?seriesId=${seriesId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.remaining_episodes > 0) {
+          setSeriesBulkPrice(data);
+          setShowSeriesOption(true);
+        }
+      })
+      .catch(console.error);
+  }, [seriesCompleted, seriesId, user, seriesBulkPrice]);
 
   // If already unlocked, nothing to show (parent hides us)
   if (alreadyUnlocked) return null;
@@ -70,7 +99,7 @@ export function EpisodeLockOverlay({
                 <span className="block text-gold">{seriesTitle}</span>
               )}
               <span className="line-clamp-1">
-                &quot;{episodeTitle}&quot; is a premium story.
+                {"\""}{episodeTitle}{"\""} is a premium story.
               </span>
             </p>
 
@@ -110,8 +139,8 @@ export function EpisodeLockOverlay({
     );
   }
 
-  // --- Signed in but insufficient points ---
-  if (!enough) {
+  // --- Signed in but insufficient points for single episode ---
+  if (!enough && (!seriesBulkPrice || effectiveBalance < seriesBulkPrice.bulk_price)) {
     return (
       <>
         <AnimatePresence>
@@ -136,7 +165,7 @@ export function EpisodeLockOverlay({
                 {seriesTitle && (
                   <span className="block text-gold">{seriesTitle}</span>
                 )}
-                <span className="line-clamp-1">&quot;{episodeTitle}&quot;</span>
+<span className="line-clamp-1">{"\""}{episodeTitle}{"\""}</span>
               </p>
 
               <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold/25 bg-gold/[0.08] py-2.5">
@@ -195,12 +224,19 @@ export function EpisodeLockOverlay({
   }
 
   // --- Signed in with enough points ---
-  const handleUnlock = async () => {
+  const handleUnlock = async (type: "episode" | "series" = "episode") => {
     if (isUnlocking) return;
     setIsUnlocking(true);
+
+    const price = type === "series" ? seriesBulkPrice?.bulk_price ?? unlockPrice : unlockPrice;
+    const title = type === "series" ? `${seriesTitle} (Full Series)` : episodeTitle;
+    const id = type === "series" ? seriesId : episodeId;
+
+    if (!id) return;
+
     try {
       // Deduct locally first for instant UX feedback
-      const ok = deductPoints(unlockPrice, `Unlocked ${episodeTitle}`);
+      const ok = deductPoints(price, `Unlocked ${title}`);
       if (!ok) {
         showToast("Insufficient points", "Please top up your wallet.");
         setIsUnlocking(false);
@@ -212,10 +248,12 @@ export function EpisodeLockOverlay({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          episodeId,
+          episodeId: type === "episode" ? id : undefined,
           videoId,
-          price: unlockPrice,
-          episodeTitle,
+          price,
+          episodeTitle: title,
+          seriesId: type === "series" ? id : undefined,
+          unlockType: type,
         }),
       });
 
@@ -233,8 +271,13 @@ export function EpisodeLockOverlay({
       }
 
       // Record in local unlocks store so the overlay disappears immediately
-      unlockEpisode(episodeId);
-      showToast("Episode unlocked! 🎉", `"${episodeTitle}" is now ready to watch.`);
+      if (type === "episode") {
+        unlockEpisode(episodeId);
+      } else {
+        // For series, unlock all episodes locally
+        // The backend already inserted user_unlocks for all episodes
+        showToast("Series unlocked! \u{1F389}", `"${seriesTitle}" is now fully unlocked.`);
+      }
       // Refresh DB balance
       await refresh();
     } catch {
@@ -244,6 +287,8 @@ export function EpisodeLockOverlay({
       setIsUnlocking(false);
     }
   };
+
+  const canUnlockSeries = seriesBulkPrice && effectiveBalance >= seriesBulkPrice.bulk_price && seriesBulkPrice.remaining_episodes > 1;
 
   return (
     <AnimatePresence>
@@ -268,7 +313,7 @@ export function EpisodeLockOverlay({
             {seriesTitle && (
               <span className="block text-gold">{seriesTitle}</span>
             )}
-            <span className="line-clamp-1">&quot;{episodeTitle}&quot;</span>
+            <span className="line-clamp-1">{"\""}{episodeTitle}{"\""}</span>
           </p>
 
           <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gold/25 bg-gold/[0.08] py-2.5">
@@ -285,25 +330,85 @@ export function EpisodeLockOverlay({
             </span>
           </div>
 
+          {/* Series Bulk Unlock Option */}
+          {showSeriesOption && seriesBulkPrice && canUnlockSeries && (
+            <div className="mt-4 p-4 rounded-xl border border-gold/25 bg-gradient-to-br from-gold/[0.08] via-transparent to-transparent">
+              <div className="flex items-center gap-2 text-xs font-semibold text-gold mb-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Better Value: Unlock Full Series</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                <div className="text-center p-2 rounded-lg bg-white/[0.03]">
+                  <p className="text-muted-foreground">Episodes</p>
+                  <p className="font-bold text-cream">{seriesBulkPrice.total_episodes} total</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-white/[0.03]">
+                  <p className="text-muted-foreground">You own</p>
+                  <p className="font-bold text-emerald-400">{seriesBulkPrice.unlocked_episodes}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-white/[0.03]">
+                  <p className="text-muted-foreground">Remaining</p>
+                  <p className="font-bold text-gold">{seriesBulkPrice.remaining_episodes}</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-white/[0.03]">
+                  <p className="text-muted-foreground">Individual total</p>
+                  <p className="font-bold text-muted-foreground">{formatPoints(seriesBulkPrice.total_price)} pts</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
+                <Calculator className="h-4 w-4 text-emerald-400" />
+                <span className="font-semibold text-emerald-300">
+                  Bulk price: {formatPoints(seriesBulkPrice.bulk_price)} pts
+                  <span className="ml-1 text-xs font-normal text-emerald-500">({seriesBulkPrice.discount_percent}% off)</span>
+                </span>
+              </div>
+              <button
+                onClick={() => void handleUnlock("series")}
+                disabled={isUnlocking}
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-full bg-emerald-500 py-2.5 text-sm font-bold text-black transition-all hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {isUnlocking ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/40 border-t-black" />
+                    Unlocking Series\u{2026}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Unlock Full Series &middot; {formatPoints(seriesBulkPrice.bulk_price)} pts
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           <div className="mt-5 flex gap-2.5">
             <button
-              onClick={() => void handleUnlock()}
+              onClick={() => void handleUnlock("episode")}
               disabled={isUnlocking}
               className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gold py-3 text-sm font-bold text-black transition-all hover:bg-gold-dim disabled:opacity-50"
             >
               {isUnlocking ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/40 border-t-black" />
-                  Unlocking…
+                  Unlocking\u{2026}
                 </>
               ) : (
                 <>
                   <Lock className="h-4 w-4" />
-                  Unlock Now &middot; {formatPoints(unlockPrice)} pts
+                  Unlock Episode &middot; {formatPoints(unlockPrice)} pts
                 </>
               )}
             </button>
           </div>
+
+          {showSeriesOption && seriesBulkPrice && !canUnlockSeries && seriesBulkPrice.remaining_episodes > 1 && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Unlock full series for {formatPoints(seriesBulkPrice.bulk_price)} pts
+              <span className="font-semibold text-gold"> ({seriesBulkPrice.discount_percent}% off)</span>
+              &mdash; need {formatPoints(seriesBulkPrice.bulk_price - effectiveBalance)} more points
+            </p>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

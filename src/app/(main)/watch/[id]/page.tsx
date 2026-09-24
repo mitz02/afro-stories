@@ -450,6 +450,8 @@ export default function WatchPage() {
                 unlockPrice={episode?.unlockPrice ?? video.unlockPrice ?? 50}
                 episodeTitle={episode?.title ?? video.title}
                 seriesTitle={series?.title}
+                seriesId={series?.id}
+                seriesCompleted={series?.completed}
               />
             )}
           </div>
