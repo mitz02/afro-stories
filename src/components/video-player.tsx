@@ -23,6 +23,7 @@ import { TiktokOverlay } from "@/components/tiktok-overlay";
 import { getEpisodesForSeries } from "@/lib/data/series";
 import { cn, formatDuration } from "@/lib/utils";
 import { useWatchProgressStore } from "@/lib/store";
+import { useToastStore } from "@/lib/store";
 import type { Episode, Series } from "@/types";
 
 export interface TiktokOverlayData {
@@ -82,6 +83,7 @@ export function VideoPlayer({
   onSelectEpisode,
   onFirstPlay,
 }: VideoPlayerProps) {
+  const showToast = useToastStore((s) => s.showToast);
   const mode = hlsUrl ? "hls" : "sim";
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -344,6 +346,12 @@ export function VideoPlayer({
               setElapsed(0);
               void secs;
             }
+          }}
+          onError={(e) => {
+            console.error("Video playback error:", e);
+            setBuffering(false);
+            setPlaying(false);
+            showToast?.("Playback error", "Failed to load video stream. Please try again.");
           }}
         />
       )}
