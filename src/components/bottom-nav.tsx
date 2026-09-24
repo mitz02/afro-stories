@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Plus, Coins, User } from "lucide-react";
+import { Home, Compass, Plus, Coins, User, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 
@@ -10,8 +10,9 @@ const navItems = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/upload", label: "Create", icon: Plus, prominent: true },
+  { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/earnings", label: "Earnings", icon: Coins, creatorOnly: true },
-  { href: "/settings", label: "Profile", icon: User, loginHref: "/login?redirect=/settings" },
+  { href: "/dashboard", label: "Profile", icon: User, loginHref: "/login?redirect=/dashboard" },
 ];
 
 export function BottomNavigation() {
@@ -40,17 +41,15 @@ export function BottomNavigation() {
     );
   }
 
+  // Filter items based on user role
+  const visibleItems = navItems.filter(item => !item.creatorOnly || isCreator);
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-      <div className="grid grid-cols-5">
-        {navItems.map((item) => {
+      <div className="grid grid-cols-5 gap-x-1">
+        {visibleItems.map((item) => {
           const isActive = item.href === "/home" ? pathname === "/home" : pathname.startsWith(item.href);
-          const show = !item.creatorOnly || isCreator;
           const href = item.loginHref && !user ? item.loginHref : item.href;
-
-          if (!show) {
-            return <div className="flex items-center justify-center" />;
-          }
 
           return (
             <NavLink
