@@ -8,20 +8,19 @@ import { useWalletStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { formatNumber } from "@/lib/utils";
 import { useUiStore } from "@/lib/store";
-import { SearchModal } from "@/components/search-modal";
 import { NotificationPanel } from "@/components/notification-panel";
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
+  const router = useRouter();
   const walletBalance = useWalletStore((s) => s.balance);
   const { user, balance: realBalance } = useSessionProfile();
-  const { setSearchOpen, notificationsOpen, setNotificationsOpen } = useUiStore();
+  const { notificationsOpen, setNotificationsOpen } = useUiStore();
 
   const signedIn = !!user;
   const balance = signedIn ? realBalance : walletBalance;
 
   return (
     <>
-      <SearchModal />
       <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#070a18]/90 backdrop-blur-xl">
         <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
           {/* Left: Mobile menu only */}
@@ -35,16 +34,15 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             </button>
           </div>
 
-          {/* Center: Search Icon - ALL screen sizes, opens SearchModal */}
+          {/* Center: Search Icon - navigates to explore page */}
           <div className="flex-1 flex justify-center">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="flex w-full max-w-[200px] h-9 items-center justify-center gap-2 rounded-full border border-white/10 bg-[#0e1329]/80 pl-4 pr-3 text-xs text-white placeholder-zinc-400"
+            <Link
+              href="/explore"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
               aria-label="Search"
             >
-              <Search className="h-4 w-4 text-zinc-400" />
-              <span className="truncate">Search...</span>
-            </button>
+              <Search className="h-5 w-5" />
+            </Link>
           </div>
 
           {/* Right Section - Notification, Wallet */}
