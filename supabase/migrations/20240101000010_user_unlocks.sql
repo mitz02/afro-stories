@@ -205,7 +205,7 @@ BEGIN
 
   -- Check episode unlock
   IF v_video.episode_id IS NOT NULL THEN
-    SELECT e.*, s.completed as series_completed, s.id as series_id_val
+    SELECT e.id, e.series_id, s.completed
     INTO v_episode, v_series
     FROM episodes e
     LEFT JOIN series s ON s.id = e.series_id
