@@ -111,7 +111,35 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // Episode doesn't exist in DB (standalone video or mock data): fall back to manual
-        unlockError = "Episode not found in database.";
+        const description = episodeTitle
+          ? `Unlocked "${episodeTitle}"`
+          : "Unlocked premium episode";
+
+        const { error: txError } = await supabase.from("point_transactions").insert({
+          user_id: userId,
+          type: "unlock",
+          amount: -price,
+          description,
+          status: "success",
+          completed_at: new Date().toISOString(),
+        });
+
+        if (txError) {
+          console.warn("Failed to record point_transaction:", txError.message);
+        }
+
+        const { error: deductError } = await supabase.rpc("deduct_points", {
+          p_user_id: userId,
+          p_amount: price,
+          p_description: description,
+          p_reference: `unlock_${episodeId}`,
+        });
+
+        if (deductError) {
+          unlockError = deductError.message ?? "Failed to deduct points.";
+        } else {
+          unlockResult = true;
+        }
       }
     } else {
       // Mock / non-UUID IDs: just record a point_transaction manually
