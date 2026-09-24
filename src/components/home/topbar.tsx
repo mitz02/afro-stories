@@ -3,32 +3,24 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Bell, Search, Plus, Menu, LogOut, UserRound, ChevronDown, X, Film, Layers, ArrowRight } from "lucide-react";
+import { Search, Menu, X, ArrowRight, Film, Layers, UserRound } from "lucide-react";
 import { AfriMask } from "@/components/home/sidebar";
-import { useToastStore, useWalletStore } from "@/lib/store";
+import { useWalletStore } from "@/lib/store";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { formatNumber } from "@/lib/utils";
 import { videos } from "@/lib/data/videos";
 import { series } from "@/lib/data/series";
 import { creators } from "@/lib/data/creators";
-import { NotificationPanel } from "@/components/notification-panel";
-
-const roleLabel = { viewer: "Story Lover", creator: "Creator", admin: "Admin" } as const;
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
-  const showToast = useToastStore((s) => s.showToast);
   const walletBalance = useWalletStore((s) => s.balance);
-  const { user, balance: realBalance, signOut } = useSessionProfile();
+  const { user, balance: realBalance } = useSessionProfile();
   const [q, setQ] = React.useState("");
-  const [profileOpen, setProfileOpen] = React.useState(false);
   const [searchFocused, setSearchFocused] = React.useState(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
 
   const signedIn = !!user;
-  const role = user?.role;
-  const displayName = user?.display_name ?? user?.email;
-  const initial = (displayName ?? "G").trim().charAt(0).toUpperCase();
   const balance = signedIn ? realBalance : walletBalance;
 
   const searchResults = React.useMemo(() => {
@@ -87,16 +79,9 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
     router.push(url);
   };
 
-  const handleSignOut = async () => {
-    setProfileOpen(false);
-    await signOut();
-    showToast("Signed out", "See you soon!");
-    router.push("/home");
-  };
-
   return (
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#070a18]/90 backdrop-blur-xl">
-      <div className="flex h-16 sm:h-14 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+      <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
         {/* Left: Mobile menu + Logo */}
         <div className="flex items-center gap-2 lg:hidden min-w-0">
           <button
@@ -265,115 +250,34 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           </button>
         </div>
 
-        {/* Right Section - responsive */}
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <NotificationPanel />
+        {/* Right Section - Only Coin Balance */}
+        <div className="flex shrink-0 items-center">
+          {/* Coin Balance Pill - hidden on mobile, shown on sm+ */}
+          <Link
+            href="/wallet"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-amber-500/20 bg-[#0e1329]/90 px-2.5 transition-colors hover:border-amber-500/40 hover:bg-[#131935] hidden sm:flex"
+          >
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 text-black text-[10px] font-black shadow-[0_0_8px_rgba(245,185,66,0.5)]">
+              $
+            </div>
+            <span className="text-xs font-bold text-zinc-100">{formatNumber(balance)}</span>
+            <div className="flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-zinc-400 hover:text-white">
+              <span className="h-2.5 w-2.5">+</span>
+            </div>
+          </Link>
 
-          {!signedIn ? (
-            <>
-              <Link
-                href="/login"
-                className="inline-flex h-9 items-center rounded-full border border-white/15 bg-white/[0.04] px-3 text-xs font-semibold text-zinc-100 transition-colors hover:border-white/30 hover:bg-white/10 hidden sm:flex"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex h-9 items-center rounded-full bg-[#f5b942] px-3 text-xs font-bold text-black shadow-[0_4px_16px_rgba(245,185,66,0.35)] transition-transform hover:scale-[1.03] hover:bg-[#ffc857]"
-              >
-                <span className="hidden sm:inline">Join Now</span>
-                <span className="sm:hidden">+</span>
-              </Link>
-            </>
-          ) : (
-            <>
-              {/* Coin Balance Pill */}
-              <Link
-                href="/wallet"
-                className="flex h-9 items-center gap-1.5 rounded-full border border-amber-500/20 bg-[#0e1329]/90 px-2.5 transition-colors hover:border-amber-500/40 hover:bg-[#131935] hidden sm:flex"
-              >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 text-black text-[10px] font-black shadow-[0_0_8px_rgba(245,185,66,0.5)]">
-                  $
-                </div>
-                <span className="text-xs font-bold text-zinc-100">{formatNumber(balance)}</span>
-                <div className="flex h-4 w-4 items-center justify-center rounded-full border border-white/25 text-zinc-400 hover:text-white">
-                  <Plus className="h-2.5 w-2.5" />
-                </div>
-              </Link>
-
-              {/* Mobile Coin Balance (icon only) */}
-              <Link
-                href="/wallet"
-                className="flex h-9 w-9 sm:hidden items-center justify-center rounded-full border border-amber-500/20 bg-[#0e1329]/90 transition-colors hover:border-amber-500/40 hover:bg-[#131935]"
-                aria-label={`Wallet: ${formatNumber(balance)} points`}
-              >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 text-black text-[10px] font-black shadow-[0_0_8px_rgba(245,185,66,0.5)]">
-                  $
-                </div>
-              </Link>
-
-              {/* Profile cluster with dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setProfileOpen((o) => !o)}
-                  aria-label="Open profile menu"
-                  className="flex items-center gap-2 rounded-full p-0.5 transition-colors hover:bg-white/[0.06] sm:px-2"
-                >
-                  <div
-                    className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[#0e1329] ring-2 ring-amber-400/80 shadow-md"
-                    style={{
-                      backgroundImage: user.avatar
-                        ? "none"
-                        : "linear-gradient(135deg, #7c3aed, #db2777)",
-                    }}
-                  >
-                    {user.avatar ? (
-                      <img src={user.avatar} alt={displayName ?? "Profile"} className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-sm font-black text-white">{initial}</span>
-                    )}
-                  </div>
-                  <div className="hidden text-left xl:block leading-tight pr-1">
-                    <p className="text-xs font-bold text-white">{displayName}</p>
-                    <p className="text-[10px] text-zinc-400">{role && roleLabel[role]}</p>
-                  </div>
-                  <ChevronDown className={cnIcon(profileOpen)} />
-                </button>
-
-                {profileOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1226] shadow-2xl backdrop-blur-xl">
-                    <div className="border-b border-white/[0.06] px-4 py-3">
-                      <p className="truncate text-sm font-bold text-white">{displayName}</p>
-                      <p className="text-[11px] text-zinc-400">{role && roleLabel[role]} account</p>
-                    </div>
-                    <div className="p-1.5">
-                      <Link
-                        href={role === "creator" ? "/dashboard" : "/settings"}
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
-                      >
-                        <UserRound className="h-4 w-4" />
-                        Profile & Settings
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-red-300"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+          {/* Mobile Coin Balance (icon only) */}
+          <Link
+            href="/wallet"
+            className="flex h-9 w-9 sm:hidden items-center justify-center rounded-full border border-amber-500/20 bg-[#0e1329]/90 transition-colors hover:border-amber-500/40 hover:bg-[#131935]"
+            aria-label={`Wallet: ${formatNumber(balance)} points`}
+          >
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 text-black text-[10px] font-black shadow-[0_0_8px_rgba(245,185,66,0.5)]">
+              $
+            </div>
+          </Link>
         </div>
       </div>
     </header>
   );
-}
-
-function cnIcon(open: boolean) {
-  return `h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`;
 }

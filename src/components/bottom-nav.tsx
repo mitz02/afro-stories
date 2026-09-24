@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Plus, Users, User } from "lucide-react";
+import { Home, Compass, Plus, Users, User, Trophy, ShoppingBag, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 
 const items = [
   { href: "/home", label: "Home", icon: Home },
   { href: "/explore", label: "Explore", icon: Compass },
+  { href: "/shorts", label: "Rankings", icon: Trophy },
   {
     href: "/upload",
     label: "Create",
@@ -16,6 +17,8 @@ const items = [
     prominent: true,
   },
   { href: "/following", label: "Following", icon: Users },
+  { href: "/wallet", label: "Wallet", icon: ShoppingBag },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Profile", icon: User },
 ];
 
@@ -26,7 +29,7 @@ export function BottomNavigation() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-5 gap-0.5 px-1">
         {items.map((item) => {
           // Hide creator-specific items for non-creators
           if ((item.href === "/upload" || item.href === "/following") && !isCreator) {
@@ -40,7 +43,7 @@ export function BottomNavigation() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="relative flex flex-col items-center justify-center py-2"
+                className="relative flex flex-col items-center justify-center py-1.5 col-span-1"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-gold to-burnt-orange text-black shadow-lg shadow-gold/30 -mt-5 border-4 border-background">
                   <Plus className="h-5 w-5" strokeWidth={2.5} />
@@ -58,7 +61,7 @@ export function BottomNavigation() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 py-2",
+                "flex flex-col items-center justify-center gap-0.5 py-1.5",
                 active ? "text-gold" : "text-muted-foreground"
               )}
             >
