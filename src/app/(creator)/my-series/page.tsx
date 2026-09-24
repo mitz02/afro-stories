@@ -19,6 +19,7 @@ import { AIBadge } from "@/components/ui/badges";
 import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatNumber } from "@/lib/utils";
+import { AddEpisodeModal } from "@/components/creator/add-episode-modal";
 
 interface SeriesRow {
   id: string;
@@ -45,6 +46,12 @@ export default function MySeriesPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const fetchedFor = React.useRef<string | null>(null);
+
+  // Add Episode modal state
+  const [addEpisodeTarget, setAddEpisodeTarget] = React.useState<{
+    seriesId: string;
+    seriesTitle: string;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!user || fetchedFor.current === user.id) return;
@@ -250,14 +257,14 @@ export default function MySeriesPage() {
                   >
                     View Page
                   </Link>
-                  <Link
-                    href="/upload"
+                  <button
+                    onClick={() => setAddEpisodeTarget({ seriesId: s.id, seriesTitle: s.title })}
                     className="rounded-full border border-white/[0.12] px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-gold/50 hover:text-gold"
                   >
                     <span className="flex items-center gap-1.5">
                       <Plus className="h-3 w-3" /> Add Episode
                     </span>
-                  </Link>
+                  </button>
                   <button className="rounded-full border border-white/[0.12] px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-gold/50 hover:text-gold">
                     <span className="flex items-center gap-1.5">
                       <Pencil className="h-3 w-3" /> Edit
@@ -268,6 +275,26 @@ export default function MySeriesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Add Episode Modal */}
+      {addEpisodeTarget && (
+        <AddEpisodeModal
+          open={!!addEpisodeTarget}
+          onOpenChange={(open) => { if (!open) setAddEpisodeTarget(null); }}
+          seriesId={addEpisodeTarget.seriesId}
+          seriesTitle={addEpisodeTarget.seriesTitle}
+          onSuccess={(_epNum) => {
+            // Optimistically bump the episode count for this series
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === addEpisodeTarget.seriesId
+                  ? { ...r, episodeCount: r.episodeCount + 1 }
+                  : r
+              )
+            );
+          }}
+        />
       )}
     </div>
   );

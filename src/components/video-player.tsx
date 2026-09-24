@@ -24,7 +24,7 @@ import { getEpisodesForSeries } from "@/lib/data/series";
 import { cn, formatDuration } from "@/lib/utils";
 import { useWatchProgressStore } from "@/lib/store";
 import { useToastStore } from "@/lib/store";
-import type { Episode, Series } from "@/types";
+import type { Episode, Season, Series } from "@/types";
 
 export interface TiktokOverlayData {
   videoId: string;
@@ -58,6 +58,8 @@ interface VideoPlayerProps {
   hlsUrl?: string;
   episode?: Episode;
   series?: Series;
+  episodes?: Episode[];
+  allSeasons?: Season[];
   overlay?: TiktokOverlayData | null;
   onSelectEpisode: (episodeId: string, videoId: string) => void;
   onFirstPlay?: ((videoId: string) => void) | undefined;
@@ -79,6 +81,8 @@ export function VideoPlayer({
   hlsUrl,
   episode,
   series,
+  episodes,
+  allSeasons,
   overlay,
   onSelectEpisode,
   onFirstPlay,
@@ -443,14 +447,16 @@ export function VideoPlayer({
           creatorVerified={overlay.creatorVerified}
           caption={overlay.caption}
           hashtags={overlay.hashtags}
-          series={series}
-          currentEpisodeId={episode?.id ?? undefined}
-          currentSeasonNumber={episode?.seasonNumber ?? undefined}
+          series={series ?? overlay.series}
+          currentEpisodeId={episode?.id ?? overlay.currentEpisodeId}
+          currentSeasonNumber={episode?.seasonNumber ?? overlay.currentSeasonNumber}
+          episodes={episodes}
+          allSeasons={allSeasons}
           onLike={overlay.onLike}
           onFollow={overlay.onFollow}
           onOpenComments={overlay.onOpenComments}
           onOpenEpisodes={overlay.onOpenEpisodes}
-          onSelectEpisode={onSelectEpisode}
+          onSelectEpisode={onSelectEpisode ?? overlay.onSelectEpisode}
         />
       )}
 
@@ -621,7 +627,7 @@ export function VideoPlayer({
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    {series.seasons.flatMap((season) =>
+                    {(allSeasons && allSeasons.length > 0 ? allSeasons : series.seasons).flatMap((season) =>
                       season && shouldRenderSeason(season.seasonNumber)
                         ? [
                             <div
@@ -630,13 +636,15 @@ export function VideoPlayer({
                             >
                               Season {season.seasonNumber}
                             </div>,
-                            ...(allEpisodesFor(series, season.seasonNumber).map(
-                              (ep) => (
+                            ...((episodes && episodes.length > 0
+                              ? episodes.filter((e) => e.seasonNumber === season.seasonNumber)
+                              : allEpisodesFor(series, season.seasonNumber)
+                            ).map((ep) => (
                                 <button
                                   key={ep.id}
                                   onClick={() => {
                                     setEpisodesOpen(false);
-                                    onSelectEpisode?.(ep.id, ep.videoId);
+                                    onSelectEpisode?.(ep.id, ep.videoId || ep.id);
                                   }}
                                   className={cn(
                                     "mb-0.5 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors hover:bg-white/[0.08]",

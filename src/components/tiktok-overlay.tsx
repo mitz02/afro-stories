@@ -32,6 +32,8 @@ interface TiktokOverlayProps {
   series: any | null;
   currentEpisodeId: string | undefined;
   currentSeasonNumber: number | undefined;
+  episodes?: any[];
+  allSeasons?: any[];
   onLike: () => void;
   onFollow: () => void;
   onOpenComments: () => void;
@@ -53,6 +55,8 @@ export function TiktokOverlay({
   series,
   currentEpisodeId,
   currentSeasonNumber,
+  episodes,
+  allSeasons,
   onLike,
   onFollow,
   onOpenComments,
@@ -79,9 +83,7 @@ export function TiktokOverlay({
   };
 
   const handleOpenEpisodes = () => {
-    if (series) {
-      setShowEpisodesModal(true);
-    }
+    setShowEpisodesModal(true);
   };
 
   const railBtn =
@@ -102,6 +104,8 @@ export function TiktokOverlay({
         series={series}
         currentEpisodeId={currentEpisodeId}
         currentSeasonNumber={currentSeasonNumber}
+        episodes={episodes}
+        allSeasons={allSeasons}
         onSelectEpisode={onSelectEpisode}
       />
 
@@ -154,14 +158,18 @@ export function TiktokOverlay({
           </button>
 
           {/* Episodes */}
-          <button onClick={handleOpenEpisodes} className={railBtn} disabled={!series}>
+          <button
+            onClick={handleOpenEpisodes}
+            className={railBtn}
+            disabled={!series && (!episodes || episodes.length === 0)}
+          >
             <span className={cn(
               "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-transform hover:scale-110",
-              !series && "opacity-30"
+              !series && (!episodes || episodes.length === 0) && "opacity-30"
             )}>
               <List className="h-5.5 w-5.5" />
             </span>
-            <span className={cn("text-[11px] font-semibold drop-shadow", !series && "opacity-30")}>
+            <span className={cn("text-[11px] font-semibold drop-shadow", !series && (!episodes || episodes.length === 0) && "opacity-30")}>
               Episodes
             </span>
           </button>

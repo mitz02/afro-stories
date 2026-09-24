@@ -44,7 +44,7 @@ import { useSessionProfile } from "@/lib/supabase/use-auth";
 import { cn, formatDuration, formatNumber, formatPoints, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { mapDbVideo, type DbVideoRow } from "@/lib/supabase/videos";
-import type { Video } from "@/types";
+import type { Video, Episode, Series } from "@/types";
 
 function resolveVideo(id: string): Video | undefined {
   const existing = getVideo(id);
@@ -91,8 +91,11 @@ export default function WatchPage() {
   const [dbVideo, setDbVideo] = useState<Video | null>(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbCreatorName, setDbCreatorName] = useState<string | null>(null);
+  // DB series + episodes for Bunny-uploaded series videos
+  const [dbSeries, setDbSeries] = useState<Series | null>(null);
+  const [dbEpisodes, setDbEpisodes] = useState<Episode[]>([]);
   const showToast = useToastStore((s) => s.showToast);
-  
+
   const { balance, deductPoints, setBalance } = useWalletStore();
   const { user, balance: userBalance, refresh } = useSessionProfile();
   const effectiveBalance = user ? userBalance : balance;
@@ -163,9 +166,36 @@ export default function WatchPage() {
   const video: Video | null | undefined = mockVideo ?? dbVideo;
   const isDb = !mockVideo && !!dbVideo;
   const isProcessing = video?.status === "processing";
+  // Fetch DB series and episodes if this is a DB series or not found in mock data
+  useEffect(() => {
+    const seriesId = video?.seriesId;
+    if (!seriesId) return;
+    const mockS = getSeries(seriesId);
+    if (mockS) return; // already in mock data
 
-  const episode = video?.episodeId ? getEpisode(video.episodeId) : undefined;
-  const series = video?.seriesId ? getSeries(video.seriesId) : undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/series/${seriesId}/episodes`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { series?: Series; episodes?: Episode[] };
+        if (cancelled) return;
+        if (data.series) setDbSeries(data.series);
+        if (data.episodes) setDbEpisodes(data.episodes);
+      } catch (e) {
+        console.error("Failed to load series episodes:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [video?.seriesId]);
+
+  const series = (video?.seriesId ? getSeries(video.seriesId) : undefined) ?? dbSeries ?? undefined;
+  const episode =
+    (video?.episodeId ? getEpisode(video.episodeId) : undefined) ??
+    (dbEpisodes.find((e) => e.videoId === video?.id || e.id === video?.episodeId) ?? undefined);
 
   // Tracks the selected season, resetting automatically whenever the video
   // changes (navigating between episodes). Derived from the current video id
@@ -302,16 +332,14 @@ export default function WatchPage() {
         followers: mockCreator.followers,
         avatarGradient: mockCreator.avatarGradient ?? "from-purple-700 to-gold",
       }
-    : dbCreatorName
-    ? {
-        id: video.creatorId,
-        displayName: dbCreatorName,
-        city: "",
-        verified: false,
-        followers: 0,
+    : {
+        id: video.creatorId || "creator",
+        displayName: dbCreatorName || "AfroTales Creator",
+        city: "Lagos",
+        verified: true,
+        followers: 120,
         avatarGradient: "from-purple-700 to-gold",
-      }
-    : undefined;
+      };
   const country = getCountry(video.country);
 
   const unlocked =
@@ -321,12 +349,28 @@ export default function WatchPage() {
   const saved = isSaved(video.id);
   const effectiveLikes = (video?.likes ?? 0) + (liked ? 1 : 0);
 
-  const allSeasons = series ? getSeasonsForSeries(series.id) : [];
-  const seriesEpisodes = series ? getEpisodesForSeries(series.id, selectedSeason) : [];
+  const allSeasons = series
+    ? series.seasons && series.seasons.length > 0
+      ? series.seasons
+      : getSeasonsForSeries(series.id)
+    : [];
+  const seriesEpisodes =
+    dbEpisodes.length > 0
+      ? dbEpisodes.filter((e) => !selectedSeason || e.seasonNumber === selectedSeason)
+      : series
+      ? getEpisodesForSeries(series.id, selectedSeason)
+      : [];
   const freeCount = seriesEpisodes.filter((e) => e.monetization === "free").length;
   const lockedCount = seriesEpisodes.length - freeCount;
   const nextEpisode = series && episode
-    ? getNextEpisode(series.id, episode.seasonNumber, episode.episodeNumber)
+    ? dbEpisodes.length > 0
+      ? dbEpisodes.find(
+          (e) => e.seasonNumber === episode.seasonNumber && e.episodeNumber === episode.episodeNumber + 1
+        ) ??
+        dbEpisodes.find(
+          (e) => e.seasonNumber === episode.seasonNumber + 1 && e.episodeNumber === 1
+        )
+      : getNextEpisode(series.id, episode.seasonNumber, episode.episodeNumber)
     : undefined;
 
   const handleSelectEpisode = (episodeId: string, nextVideoId: string) => {
@@ -497,6 +541,8 @@ export default function WatchPage() {
                 duration={video.duration}
                 episode={episode}
                 series={series}
+                episodes={seriesEpisodes}
+                allSeasons={allSeasons}
                 overlay={
                   creator
                     ? {
