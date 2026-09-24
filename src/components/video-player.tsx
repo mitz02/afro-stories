@@ -97,6 +97,7 @@ export function VideoPlayer({
   const [quality, setQuality] = useState("Auto");
   const [speed, setSpeed] = useState(1);
   const [captions, setCaptions] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -153,6 +154,31 @@ export function VideoPlayer({
         if (destroyed) return;
         if (Hls.isSupported()) {
           const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+          
+          // Add HLS error handling
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            if (destroyed) return;
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error("HLS network error:", data);
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error("HLS media error:", data);
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  console.error("HLS fatal error:", data);
+                  hls.destroy();
+                  setBuffering(false);
+                  setPlaying(false);
+                  showToast?.("Playback error", "Failed to load video stream. Please try again.");
+                  break;
+              }
+            }
+          });
+          
           hlsRef.current = hls;
           hls.loadSource(hlsUrl);
           hls.attachMedia(el);
@@ -351,9 +377,50 @@ export function VideoPlayer({
             console.error("Video playback error:", e);
             setBuffering(false);
             setPlaying(false);
+            setVideoError("Failed to load video stream. Please try again.");
             showToast?.("Playback error", "Failed to load video stream. Please try again.");
           }}
         />
+      )}
+
+      {/* Video Error Fallback */}
+      {videoError && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 p-6">
+          <div className="text-center max-w-md">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-crimson/20 mb-4">
+              <X className="h-8 w-8 text-crimson" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-cream mb-2">Unable to Play Video</h3>
+            <p className="text-sm text-muted-foreground mb-6">{videoError}</p>
+            <button
+              onClick={() => {
+                setVideoError(null);
+                setBuffering(true);
+                const el = videoRef.current;
+                if (el && hlsUrl) {
+                  if (el.canPlayType("application/vnd.apple.mpegurl")) {
+                    el.src = hlsUrl;
+                  } else {
+                    void import("hls.js").then(({ default: Hls }) => {
+                      if (Hls.isSupported()) {
+                        const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+                        hlsRef.current = hls;
+                        hls.loadSource(hlsUrl);
+                        hls.attachMedia(el);
+                      }
+                    });
+                  }
+                  el.load();
+                  el.play().catch(() => {});
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-bold text-black transition-all hover:bg-gold-dim"
+            >
+              <Loader2 className="h-4 w-4" />
+              Retry
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Buffering spinner */}
@@ -680,7 +747,7 @@ export function VideoPlayer({
               )}
             </button>
           </div>
-        </div>
+</div>
       </div>
     </div>
   );
