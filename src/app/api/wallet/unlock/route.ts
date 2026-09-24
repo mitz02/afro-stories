@@ -64,29 +64,70 @@ export async function POST(req: NextRequest) {
     const videoIsUuid = uuidRegex.test(videoId);
 
     if (episodeIsUuid && videoIsUuid) {
-      // Use the dedicated DB function (deducts points + records earnings)
-      const { data: unlockResult, error: unlockError } = await supabase.rpc(
-        "unlock_episode",
-        {
-          p_user_id: userId,
-          p_episode_id: episodeId,
-          p_video_id: videoId,
-          p_price: price,
+      // Verify episode exists in DB before calling unlock_episode RPC
+      const { data: episode } = await supabase
+        .from("episodes")
+        .select("id")
+        .eq("id", episodeId)
+        .maybeSingle();
+
+      if (episode) {
+        // Use the dedicated DB function (deducts points + records earnings)
+        const { data: unlockResult, error: unlockError } = await supabase.rpc(
+          "unlock_episode",
+          {
+            p_user_id: userId,
+            p_episode_id: episodeId,
+            p_video_id: videoId,
+            p_price: price,
+          }
+        );
+
+        if (unlockError) {
+          return NextResponse.json(
+            { error: unlockError.message ?? "Failed to unlock episode." },
+            { status: 500 }
+          );
         }
-      );
 
-      if (unlockError) {
-        return NextResponse.json(
-          { error: unlockError.message ?? "Failed to unlock episode." },
-          { status: 500 }
-        );
-      }
+        if (unlockResult === false) {
+          return NextResponse.json(
+            { error: "Insufficient points or episode already unlocked." },
+            { status: 402 }
+          );
+        }
+      } else {
+        // Episode doesn't exist in DB (standalone video or mock data): fall back to manual
+        const description = episodeTitle
+          ? `Unlocked "${episodeTitle}"`
+          : "Unlocked premium episode";
 
-      if (unlockResult === false) {
-        return NextResponse.json(
-          { error: "Insufficient points or episode already unlocked." },
-          { status: 402 }
-        );
+        const { error: txError } = await supabase.from("point_transactions").insert({
+          user_id: userId,
+          type: "unlock",
+          amount: -price,
+          description,
+          status: "success",
+          completed_at: new Date().toISOString(),
+        });
+
+        if (txError) {
+          console.warn("Failed to record point_transaction:", txError.message);
+        }
+
+        const { error: deductError } = await supabase.rpc("deduct_points", {
+          p_user_id: userId,
+          p_amount: price,
+          p_description: description,
+          p_reference: `unlock_${episodeId}`,
+        });
+
+        if (deductError) {
+          return NextResponse.json(
+            { error: deductError.message ?? "Failed to deduct points." },
+            { status: 500 }
+          );
+        }
       }
     } else {
       // Mock / non-UUID IDs: just record a point_transaction manually
